@@ -97,7 +97,12 @@ def init_project(project: Path) -> list[str]:
     agents.mkdir(exist_ok=True)
     cfg_path = agents / "orch.toml"
     if not cfg_path.exists():
-        cfg_path.write_text(DEFAULT_CONFIG_TOML, encoding="utf-8")
+        from . import i18n
+        from .config_en import DEFAULT_CONFIG_TOML_EN
+
+        # comments in Chinese for Chinese users, in English for everyone else
+        text = DEFAULT_CONFIG_TOML if i18n.current() == "zh" else DEFAULT_CONFIG_TOML_EN
+        cfg_path.write_text(text, encoding="utf-8")
         msgs.append(tr("写入配置 {0}", cfg_path))
     cfg = Config.load(project)
     Store(agents / "state.db").close()

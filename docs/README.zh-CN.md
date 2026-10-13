@@ -97,7 +97,7 @@ python -m orch -p 你的仓库 api check openai_api          # 发一次极小�
 python -m orch -p 你的仓库 doctor
 ```
 
-路由、预算等所有设置都在 `你的仓库\.agents\orch.toml` 里（带中文注释）。
+路由、预算等所有设置都在 `你的仓库\.agents\orch.toml` 里。orch 的语言是中文时注释是中文，其他语言时是英文。
 
 **4. 跑第一个任务**：写上验收命令，它们全部返回 0 才算完成。
 
@@ -142,6 +142,7 @@ python -m orch -p 你的仓库 report
 
 ## 更新记录
 
+- **0.3.9**：`orch init` 生成的配置文件，语言是中文时注释是中文，其他语言时是英文。
 - **0.3.8**：Gemini CLI 能在每个任务新建的 worktree 里运行（`--skip-trust`）；说明里写清楚它要用 API key 或付费方案，
   因为个人免费登录现在会被拒绝。
 - **0.3.7**：Gemini CLI 可以当写代码的 agent（`executor = "gemini"`，池 `gemini_sub`），和 Claude Code、Codex 并列；

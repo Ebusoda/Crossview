@@ -121,7 +121,7 @@ python -m orch -p path\to\repo api check openai_api          # one tiny call to 
 python -m orch -p path\to\repo doctor
 ```
 
-Routes, budgets and every other setting live in `path\to\repo\.agents\orch.toml` (commented).
+Routes, budgets and every other setting live in `path\to\repo\.agents\orch.toml`, with comments in English (in Chinese when orch's language is Chinese).
 
 **4. Run your first task.** Give acceptance commands: a task is done only when they exit with code 0.
 
@@ -182,6 +182,8 @@ Tools: `orch_list_projects`, `orch_list_tasks`, `orch_task`, `orch_add_task`, `o
 
 ## Changelog
 
+- **0.3.9**: `orch init` writes the config file with English comments (Chinese when orch's language
+  is Chinese).
 - **0.3.8**: Gemini CLI runs in each task's new worktree (`--skip-trust`); the guide says it needs a Gemini API key
   or a paid plan, because the free personal sign-in is now refused.
 - **0.3.7**: Gemini CLI as a coding agent (`executor = "gemini"`, pool `gemini_sub`), next to Claude Code and

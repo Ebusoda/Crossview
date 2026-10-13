@@ -1,6 +1,6 @@
 [project]
 name = "mao-orch"
-version = "0.3.8"
+version = "0.3.9"
 description = "MAO: deterministic orchestrator for multiple coding-agent CLIs (Claude Code, Codex, opencode)"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }   # PolyForm Noncommercial 1.0.0
