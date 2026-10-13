@@ -9,7 +9,7 @@
 ## 现在能用它做什么
 
 - 在命令行里，或者在 Claude Desktop 这类聊天应用里（MCP），把编程任务交给你自己的模型。测试通过才算完成。
-- 用你已有的账号：Claude Code、Codex 的订阅，用 Google 账号登录的 Gemini CLI，以及 DeepSeek、GPT、Claude、千问、Gemini、豆包的 API key（`orch connect` 会列出哪些能用）。
+- 用你已有的账号：Claude Code、Codex 的订阅，Gemini CLI，以及 DeepSeek、GPT、Claude、千问、Gemini、豆包的 API key（`orch connect` 会列出哪些能用）。
 - 每个任务先交给合适的最便宜的模型；失败、崩溃、被限流或卡住时换更强的模型，下一个模型读交接说明接着做。
 - 把一个大目标拆成任务，你批准后再执行（`orch plan`）；或者让两家模型各出方案、互相点评，裁判写决策记录（`orch decide`）。
 - 同时跑多个任务，每个都在自己的 git worktree 里，自动或手动合并。
@@ -79,7 +79,8 @@ python -m orch -p playground/demo status
 
 - **订阅**：安装并登录你付费的命令行工具。Claude Code（`npm install -g @anthropic-ai/claude-code`，然后运行一次 `claude`）
   用你的 Claude 套餐；Codex（`npm install -g @openai/codex`，然后运行一次 `codex`）用你的 ChatGPT 套餐；
-  Gemini CLI（`npm install -g @google/gemini-cli`，然后运行一次 `gemini`）用你的 Google 账号。Gemini 默认不在路由里，
+  Gemini CLI（`npm install -g @google/gemini-cli`）要用 Gemini 的 API key（环境变量 `GEMINI_API_KEY`，在 aistudio.google.com
+  申请）或付费的 Google 方案：2026 年 10 月起，个人免费的 Google 账号登录已经不能用于 Gemini CLI。Gemini 默认不在路由里，
   想用就把 `"gemini_sub"` 加进 `.agents/orch.toml` 里 `[routing]` 的对应行。
 - **API key**（DeepSeek、GPT、Claude、千问、Gemini、豆包）：`python -m orch key set deepseek` 保存 key
   （输入时不显示；在 Windows 上会按你的账号加密），或者设置对应的环境变量（`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、
@@ -141,6 +142,8 @@ python -m orch -p 你的仓库 report
 
 ## 更新记录
 
+- **0.3.8**：Gemini CLI 能在每个任务新建的 worktree 里运行（`--skip-trust`）；说明里写清楚它要用 API key 或付费方案，
+  因为个人免费登录现在会被拒绝。
 - **0.3.7**：Gemini CLI 可以当写代码的 agent（`executor = "gemini"`，池 `gemini_sub`），和 Claude Code、Codex 并列；
   审查和规划时用只读模式。脱敏统计只数真正发出去的内容。
 - **0.3.6**：办公文档。`orch sheet` 用大白话问 Excel、CSV 表格（模型只看列名和几行样例，数字在你电脑上算），

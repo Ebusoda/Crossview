@@ -12,7 +12,7 @@ Python 3.11+, standard library only. Built and used on Windows. A full guide in 
 
 - Give a coding task to your own models from the command line, or from a chat app such as Claude Desktop (MCP).
   It counts as done only when your tests pass.
-- Use the accounts you already have: Claude Code and Codex subscriptions, Gemini CLI with your Google account, and API keys for DeepSeek, GPT, Claude,
+- Use the accounts you already have: Claude Code and Codex subscriptions, Gemini CLI, and API keys for DeepSeek, GPT, Claude,
   Qwen, Gemini and Doubao (`orch connect` shows what works).
 - Start each task on the cheapest suitable model and move it to a stronger one when it fails, crashes, hits a
   rate limit or gets stuck; the next model continues from a handoff note.
@@ -102,7 +102,8 @@ python -m orch -p playground/demo status
 - *Subscriptions*: install and sign in to the CLIs you pay for. Claude Code
   (`npm install -g @anthropic-ai/claude-code`, then run `claude` once) uses your Claude plan; Codex
   (`npm install -g @openai/codex`, then run `codex` once) uses your ChatGPT plan; Gemini CLI
-  (`npm install -g @google/gemini-cli`, then run `gemini` once) uses your Google account. Gemini is not in the
+  (`npm install -g @google/gemini-cli`) needs a Gemini API key in `GEMINI_API_KEY` (aistudio.google.com) or a paid
+  Google plan: since October 2026 the free personal Google sign-in no longer works with it. Gemini is not in the
   default routes: add `"gemini_sub"` to the `[routing]` lines in `.agents/orch.toml` where you want it.
 - *API keys* (DeepSeek, GPT, Claude, Qwen, Gemini, Doubao): save a key with
   `python -m orch key set deepseek` (input is hidden; on Windows the key is encrypted for your account), or set the
@@ -181,6 +182,8 @@ Tools: `orch_list_projects`, `orch_list_tasks`, `orch_task`, `orch_add_task`, `o
 
 ## Changelog
 
+- **0.3.8**: Gemini CLI runs in each task's new worktree (`--skip-trust`); the guide says it needs a Gemini API key
+  or a paid plan, because the free personal sign-in is now refused.
 - **0.3.7**: Gemini CLI as a coding agent (`executor = "gemini"`, pool `gemini_sub`), next to Claude Code and
   Codex; reviews and plans run it read-only. The masking summary counts only details that were actually sent.
 - **0.3.6**: office work. `orch sheet` answers questions about Excel and CSV tables (the model sees only the

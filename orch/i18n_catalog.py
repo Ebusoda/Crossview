@@ -554,4 +554,6 @@ CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_FILL
 CATALOG["npm install -g @google/gemini-cli   （需要 Node.js）"] = {
     "src": "zh", "en": "npm install -g @google/gemini-cli   (needs Node.js)",
     "ja": "npm install -g @google/gemini-cli   （Node.js が必要）"}
-CATALOG["your Google account"] = {"src": "en", "zh": "你的 Google 账号", "ja": "あなたの Google アカウント"}
+CATALOG["a Gemini API key (GEMINI_API_KEY) or a paid Google plan"] = {
+    "src": "en", "zh": "Gemini 的 API key（GEMINI_API_KEY）或付费的 Google 方案",
+    "ja": "Gemini の API キー（GEMINI_API_KEY）または有料の Google プラン"}

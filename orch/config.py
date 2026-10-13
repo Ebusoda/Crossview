@@ -119,7 +119,8 @@ reserve = 0.10                         # Codex 目前不在事件里报告用量
 resume_max_tokens = 200000
 
 [pools.gemini_sub]
-# Gemini CLI，用你自己的 Google 账号登录（或 GEMINI_API_KEY）。默认不在路由里：装好并登录后，
+# Gemini CLI。2026-10 起个人免费的 Google 账号登录已经不能用于 Gemini CLI（实测报 IneligibleTierError），
+# 要用 Google AI Studio 的 API key（环境变量 GEMINI_API_KEY）或付费的 Google 方案。默认不在路由里：装好并能用后，
 # 把 "gemini_sub" 加进 [routing] 里想用的那几行就行。
 executor = "gemini"
 model = ""                             # 空 = 用 gemini 自己的默认模型
@@ -168,7 +169,8 @@ prompt_via_stdin = true                # 提示词作为 <stdin> 块直接给 Co
 command = "gemini"
 # --approval-mode yolo：无人值守时自动批准它要做的操作（改文件、跑命令）。它只在任务自己的 worktree 里干活，
 # 和 Claude Code 的 acceptEdits、Codex 的 workspace-write 同理；只读的规划和审查会自动换成 plan 模式。
-args = ["--output-format", "stream-json", "--approval-mode", "yolo"]
+# --skip-trust：每个任务都在新的 worktree 里跑，gemini 不信任没见过的文件夹，不加这一项会直接退出（实测 gemini-cli 0.63.0）。
+args = ["--output-format", "stream-json", "--approval-mode", "yolo", "--skip-trust"]
 
 [executors.opencode]
 command = "opencode"

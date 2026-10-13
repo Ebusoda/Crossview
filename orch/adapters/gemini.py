@@ -1,7 +1,10 @@
 """Google Gemini CLI (`gemini -p ... --output-format stream-json`).
 
-Uses the user's own login of the unmodified `gemini` binary (a Google account, or GEMINI_API_KEY /
-Vertex settings that `gemini` itself reads). The orchestrator never reads Gemini credentials.
+Uses whatever the unmodified `gemini` binary is set up with: GEMINI_API_KEY, Vertex settings, or a paid
+Google plan. (Seen 2026-10-13 with gemini-cli 0.63.0: the free personal Google sign-in is refused with
+IneligibleTierError, "no longer supported for Gemini Code Assist for individuals".) The orchestrator never
+reads Gemini credentials. `--skip-trust` is needed because every task runs in a new worktree, and gemini
+exits at once in a folder it has not been told to trust.
 
 Headless mode, as defined in gemini-cli's packages/core/src/output/types.ts (checked 2026-10-13):
 JSONL events `init` (session_id, model), `message` (role, content, delta), `tool_use`, `tool_result`,
