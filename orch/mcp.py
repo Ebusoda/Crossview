@@ -176,6 +176,59 @@ class OrchTools:
     def cancel(self, project: str, task_id: str) -> dict:
         return {"output": self._orch(project, "task", "cancel", task_id)}
 
+    # -- office work (orch sheet / orch doc): files on this computer, any folder ---------------------
+    @staticmethod
+    def _office(sensitive: bool, mask: str):
+        from . import office, redact
+
+        return office.endpoints(None, None, None, True if sensitive else None), redact.make([mask] if mask else [])
+
+    def sheet_ask(self, file: str, question: str, sheet: str = "", sensitive: bool = False, mask: str = "") -> dict:
+        from . import sheet as sh
+
+        if not question.strip():
+            raise ValueError("question is empty")
+        t = sh.load(Path(file), sheet or None)
+        eps, masker = self._office(sensitive, mask)
+        ans = sh.ask(t, question, eps, masker=masker)
+        files = sh.save(Path(file), ans.result, ans.plan)
+        return {"answer": "\n".join(sh.render_text(ans.result)), "note": str(ans.plan.get("note") or ""),
+                "rows": len(ans.result.rows), "files": {k: str(v) for k, v in files.items()},
+                "masked": masker.summary(), "model": f"{ans.endpoint} {ans.model}",
+                "tokens": {"in": ans.tokens_in, "out": ans.tokens_out}}
+
+    def doc(self, action: str, request: str = "", file: str = "", materials: list[str] | None = None,
+            style: str = "plain", sensitive: bool = False, mask: str = "", out: str = "") -> dict:
+        from . import doc as d
+
+        if action not in ("draft", "polish", "fill"):
+            raise ValueError("action is draft, polish or fill")
+        if action in ("polish", "fill") and not file:
+            raise ValueError(f"{action} needs file")
+        if action in ("draft", "fill") and not request.strip():
+            raise ValueError(f"{action} needs request")
+        style = "gongwen" if style == "gongwen" else "plain"
+        mats = [Path(m) for m in materials or []]
+        eps, masker = self._office(sensitive, mask)
+        if action == "fill":
+            values, res = d.fill(Path(file), request, eps, mats, masker=masker)
+            dest = Path(out) if out else d.out_path([], Path(file).parent, Path(file).stem + "_filled")
+            empty = d.fill_docx(Path(file), values, dest)
+            body = {"fields": values, "empty_fields": empty}
+        else:
+            if action == "draft":
+                blocks, res = d.draft(request, eps, mats, style, masker=masker)
+                folder = mats[0].parent if mats else Path.home() / "Documents"
+                dest = Path(out) if out else d.out_path(blocks, folder)
+            else:
+                blocks, res = d.polish(d.read_any(Path(file)), request, eps, style, masker=masker)
+                dest = Path(out) if out else d.out_path(blocks, Path(file).parent, Path(file).stem + "_edited")
+            d.write_docx(blocks, dest, style)
+            text = d.to_markdown(blocks)
+            body = {"text": text, "length": d.count(text)}
+        return {**body, "saved": str(dest), "masked": masker.summary(), "model": f"{res.endpoint} {res.model}",
+                "tokens": {"in": res.tokens_in, "out": res.tokens_out}}
+
 
 def _detached() -> dict:
     if sys.platform == "win32":
@@ -238,6 +291,27 @@ TOOLS: list[dict[str, Any]] = [
      "inputSchema": {"type": "object", "properties": {
          "days": {"type": "number", "description": "how far back (default 7)"},
          "include_orch": {"type": "boolean", "description": "also list sessions orch started itself"}}}},
+    {"name": "office_sheet_ask", "description": "Answer a question about an Excel (.xlsx/.xls), WPS or CSV table on this "
+     "computer. The model only sees column names and five masked sample rows; the numbers are computed locally over "
+     "the whole table. Saves the result as .xlsx (and a chart as .svg) next to the file.",
+     "inputSchema": {"type": "object", "properties": {
+         "file": {"type": "string", "description": "full path of the table"},
+         "question": {"type": "string"}, "sheet": {"type": "string", "description": "sheet name or number (optional)"},
+         "sensitive": {"type": "boolean", "description": "use only models based in China (DeepSeek, Qwen, Doubao)"},
+         "mask": {"type": "string", "description": "more words to hide, comma-separated (names, organisations)"}},
+         "required": ["file", "question"]}},
+    {"name": "office_doc", "description": "Write (draft), edit (polish) or fill in a Word template (fill: {{field}} "
+     "placeholders) and save a .docx on this computer. Personal details (ID, phone, card numbers, e-mail, labelled "
+     "names) are masked before sending and restored in the result. style gongwen = Chinese official document layout.",
+     "inputSchema": {"type": "object", "properties": {
+         "action": {"type": "string", "enum": ["draft", "polish", "fill"]},
+         "request": {"type": "string", "description": "what to write, how to edit (polish: empty = tidy up), or what to fill in"},
+         "file": {"type": "string", "description": "polish: the document; fill: the template (.docx/.doc/.wps)"},
+         "materials": {"type": "array", "items": {"type": "string"}, "description": "reference files (draft, fill)"},
+         "style": {"type": "string", "enum": ["plain", "gongwen"]},
+         "sensitive": {"type": "boolean"}, "mask": {"type": "string"},
+         "out": {"type": "string", "description": "where to save (optional)"}},
+         "required": ["action"]}},
     {"name": "orch_retry", "description": "Queue a blocked, failed or cancelled task again.",
      "inputSchema": {"type": "object", "properties": {**_P, "task_id": {"type": "string"}},
                      "required": ["project", "task_id"]}},
@@ -269,6 +343,11 @@ class Server:
             "orch_sessions": lambda a: tools.sessions(a.get("days", 7), a.get("include_orch", False)),
             "orch_retry": lambda a: tools.retry(a["project"], a["task_id"]),
             "orch_cancel": lambda a: tools.cancel(a["project"], a["task_id"]),
+            "office_sheet_ask": lambda a: tools.sheet_ask(a["file"], a["question"], a.get("sheet", ""),
+                                                          a.get("sensitive", False), a.get("mask", "")),
+            "office_doc": lambda a: tools.doc(a["action"], a.get("request", ""), a.get("file", ""), a.get("materials"),
+                                              a.get("style", "plain"), a.get("sensitive", False), a.get("mask", ""),
+                                              a.get("out", "")),
         }
 
     def handle(self, msg: dict) -> dict | None:
@@ -279,7 +358,7 @@ class Server:
             if method == "initialize":
                 asked = (msg.get("params") or {}).get("protocolVersion")
                 result = {"protocolVersion": asked if asked in SUPPORTED else PROTOCOL, "capabilities": {"tools": {}},
-                          "serverInfo": {"name": "orch", "version": "0.3"}}
+                          "serverInfo": {"name": "orch", "version": "0.4"}}
             elif method == "ping":
                 result = {}
             elif method == "tools/list":

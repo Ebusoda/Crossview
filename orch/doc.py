@@ -127,6 +127,9 @@ def read_any(path: Path) -> list[Block]:
     path = Path(path)
     if not path.is_file():
         raise OfficeError(tr("找不到文件：{0}", path))
+    from .convert import ready
+
+    path = ready(path)                          # .doc / .wps / .rtf: converted to .docx first
     if path.suffix.lower() in (".docx", ".docm"):
         return read_docx(path)
     if path.suffix.lower() in (".txt", ".md", ".markdown", ".text"):
@@ -137,7 +140,7 @@ def read_any(path: Path) -> list[Block]:
             except UnicodeDecodeError:
                 continue
         return from_markdown(data.decode("latin-1"))
-    raise OfficeError(tr("只支持 .docx、.txt 和 .md 文件（{0}）", path.name))
+    raise OfficeError(tr("只支持 Word（.docx、.doc）、WPS 文字、.txt 和 .md 文件（{0}）", path.name))
 
 
 # -- the text format the model reads and writes ---------------------------------------
@@ -372,7 +375,7 @@ def draft(request: str, eps: list[Endpoint], materials: list[Path] = (), style: 
     mats = [(Path(p).name, to_markdown(read_any(Path(p)))) for p in materials]
     msgs = draft_messages(request, mats, style, masker)
     _check_size(msgs[1]["content"])
-    res = complete(eps, msgs, timeout)
+    res = complete(eps, msgs, timeout, tool="doc draft")
     text = masker.unmask(res.text) if masker is not None else res.text
     return from_markdown(text), res
 
@@ -383,7 +386,7 @@ def polish(blocks: list[Block], request: str, eps: list[Endpoint], style: str = 
     if not text.strip():
         raise OfficeError(tr("这个文档没有文字"))
     _check_size(text)
-    res = complete(eps, polish_messages(text, request, style, masker), timeout)
+    res = complete(eps, polish_messages(text, request, style, masker), timeout, tool="doc polish")
     return from_markdown(masker.unmask(res.text) if masker is not None else res.text), res
 
 
@@ -408,6 +411,9 @@ def template_fields(path: Path) -> list[str]:
     path = Path(path)
     if not path.is_file():
         raise OfficeError(tr("找不到文件：{0}", path))
+    from .convert import ready
+
+    path = ready(path)
     try:
         with zipfile.ZipFile(path) as z:
             xml = [z.read(n).decode("utf-8") for n in z.namelist() if _PARTS.fullmatch(n)]
@@ -445,6 +451,9 @@ def _fill_para(p: str, values: dict[str, str]) -> str:
 
 def fill_docx(template: Path, values: dict[str, str], dest: Path) -> list[str]:
     """Copy the template with each {{field}} replaced; returns the fields left empty."""
+    from .convert import ready
+
+    template = ready(Path(template))
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(template) as src, zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as out:
@@ -477,7 +486,7 @@ def fill(template: Path, request: str, eps: list[Endpoint], materials: list[Path
     mats = [(Path(p).name, to_markdown(read_any(Path(p)))) for p in materials]
     msgs = fill_messages(fields, request, mats, masker)
     _check_size(msgs[1]["content"])
-    res = complete(eps, msgs, timeout, temperature=0)
+    res = complete(eps, msgs, timeout, temperature=0, tool="doc fill")
     text = res.text.strip()
     fence = re.search(r"```(?:json)?\s*(.*?)```", text, re.S)
     text = fence.group(1) if fence else text

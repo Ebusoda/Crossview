@@ -7,6 +7,8 @@ When one fails (no quota, wrong key, timeout) the next one is tried.
 from __future__ import annotations
 
 import json
+import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -116,7 +118,7 @@ class Result:
 
 
 def complete(eps: list[Endpoint], messages: list[dict[str, str]], timeout: float = 300,
-             temperature: float | None = None) -> Result:
+             temperature: float | None = None, tool: str = "doc") -> Result:
     """The first endpoint that answers with some text; the others are tried in turn."""
     tried: list[str] = []
     for ep in eps:
@@ -130,5 +132,69 @@ def complete(eps: list[Endpoint], messages: list[dict[str, str]], timeout: float
             tried.append(f"{ep.label}: empty")
             continue
         tried.append(f"{ep.label}: ok")
+        record(tool, ep, reply.model, reply.tokens_in, reply.tokens_out)
         return Result(reply.text, ep.label, reply.model, reply.tokens_in, reply.tokens_out, tried)
     raise OfficeError(tr("没有模型给出回答（{0}）", "; ".join(tried)))
+
+# -- usage records -------------------------------------------------------------------
+# Office calls belong to no project, so they are kept per user, one JSON line per call:
+# <settings folder>/office_usage.jsonl (MAO_OFFICE_USAGE overrides). Token counts and dollars only, never content.
+
+def usage_path() -> Path:
+    return Path(os.environ.get("MAO_OFFICE_USAGE") or settings_path().parent / "office_usage.jsonl")
+
+
+def record(tool: str, ep: "Endpoint", model: str, tokens_in: int | None, tokens_out: int | None,
+           calls: int = 1, now: float | None = None) -> None:
+    """Never fails the command that called it."""
+    usd = llm.cost_usd(llm.Reply("", model, tokens_in, tokens_out), ep.prices) if ep.prices else None
+    line = {"at": round(now or time.time(), 1), "tool": tool, "provider": ep.label, "model": model,
+            "tokens_in": tokens_in or 0, "tokens_out": tokens_out or 0, "calls": calls,
+            "usd": round(usd, 6) if usd is not None else None}
+    try:
+        p = usage_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(line, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def usage(now: float | None = None) -> dict[str, dict]:
+    """Totals for today and the last 7 days, overall and per provider."""
+    now = now or time.time()
+    midnight = time.mktime(time.localtime(now)[:3] + (0, 0, 0, 0, 0, -1))
+    out = {k: {"calls": 0, "tokens_in": 0, "tokens_out": 0, "usd": 0.0, "by": {}} for k in ("today", "week")}
+    try:
+        lines = usage_path().read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+    for raw in lines:
+        try:
+            r = json.loads(raw)
+        except ValueError:
+            continue
+        for key, since in (("today", midnight), ("week", now - 7 * 86400)):
+            if r.get("at", 0) < since:
+                continue
+            o = out[key]
+            o["calls"] += int(r.get("calls") or 1)
+            o["tokens_in"] += int(r.get("tokens_in") or 0)
+            o["tokens_out"] += int(r.get("tokens_out") or 0)
+            o["usd"] += float(r.get("usd") or 0)
+            b = o["by"].setdefault(r.get("provider", "?"), {"calls": 0, "tokens": 0})
+            b["calls"] += int(r.get("calls") or 1)
+            b["tokens"] += int(r.get("tokens_in") or 0) + int(r.get("tokens_out") or 0)
+    return out
+
+
+def usage_lines(now: float | None = None) -> list[str]:
+    u = usage(now)
+    out = []
+    for key, label in (("today", tr("今天")), ("week", tr("最近 7 天"))):
+        o = u[key]
+        by = tr("，").join(f"{p} {v['calls']}" for p, v in sorted(o["by"].items()))
+        usd = f"  ${o['usd']:.4f}" if o["usd"] else ""
+        out.append(tr("  {0}：{1} 次，token 输入 {2:,} / 输出 {3:,}{4}{5}", label, o["calls"], o["tokens_in"],
+                      o["tokens_out"], usd, f" ({by})" if by else ""))
+    return out

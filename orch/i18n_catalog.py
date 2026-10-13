@@ -557,3 +557,15 @@ CATALOG["npm install -g @google/gemini-cli   （需要 Node.js）"] = {
 CATALOG["a Gemini API key (GEMINI_API_KEY) or a paid Google plan"] = {
     "src": "en", "zh": "Gemini 的 API key（GEMINI_API_KEY）或付费的 Google 方案",
     "ja": "Gemini の API キー（GEMINI_API_KEY）または有料の Google プラン"}
+
+# old formats, office usage
+_ZH_MORE: dict[str, tuple[str, str]] = {
+    "办公用量（问表格、写文档，所有项目合计）：": ("Office use (table questions and documents, all projects):", "オフィス作業の利用量（表への質問と文書、全プロジェクト合計）:"),
+    "\n办公（orch sheet / orch doc，不分项目）：": ("\nOffice (orch sheet / orch doc, not tied to a project):", "\nオフィス作業（orch sheet / orch doc、プロジェクト共通）:"),
+    "打不开老格式的 {0}：这台电脑上没有能转换它的 Word / Excel、WPS 或 LibreOffice。请在 Word / Excel / WPS 里把它另存为 {1}": ("Cannot open the old-format file {0}: no Word / Excel, WPS or LibreOffice on this computer can convert it. Save it as {1} in Word / Excel / WPS", "古い形式の {0} を開けません。変換できる Word / Excel、WPS、LibreOffice がこのパソコンにありません。Word / Excel / WPS で {1} として保存してください"),
+    "只支持 Word（.docx、.doc）、WPS 文字、.txt 和 .md 文件（{0}）": ("Only Word (.docx, .doc), WPS Writer, .txt and .md files are supported ({0})", "Word（.docx、.doc）、WPS 文字、.txt、.md ファイルのみ対応しています（{0}）"),
+    "只支持 Excel（.xlsx、.xls）、WPS 表格和 .csv 文件（{0}）": ("Only Excel (.xlsx, .xls), WPS Spreadsheets and .csv files are supported ({0})", "Excel（.xlsx、.xls）、WPS 表計算、.csv ファイルのみ対応しています（{0}）"),
+    "最近 7 天": ("last 7 days", "直近 7 日"),
+    "  {0}：{1} 次，token 输入 {2:,} / 输出 {3:,}{4}{5}": ("  {0}: {1} call(s), tokens in {2:,} / out {3:,}{4}{5}", "  {0}: {1} 回、トークン 入力 {2:,} / 出力 {3:,}{4}{5}"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_MORE.items()})

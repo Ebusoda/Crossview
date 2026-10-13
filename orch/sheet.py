@@ -211,6 +211,9 @@ def load(path: Path, sheet: str | None = None, header: int | None = None) -> Tab
     path = Path(path)
     if not path.is_file():
         raise SheetError(tr("找不到文件：{0}", path))
+    from .convert import ready
+
+    path = ready(path)                          # .xls / .et: converted to .xlsx first
     ext = path.suffix.lower()
     if ext in (".xlsx", ".xlsm"):
         raw, name, sheets = read_xlsx(path, sheet)
@@ -222,7 +225,7 @@ def load(path: Path, sheet: str | None = None, header: int | None = None) -> Tab
     elif ext in (".csv", ".tsv", ".txt"):
         raw, name, sheets = read_csv(path), path.stem, []
     else:
-        raise SheetError(tr("只支持 .xlsx 和 .csv 文件（{0}）", path.name))
+        raise SheetError(tr("只支持 Excel（.xlsx、.xls）、WPS 表格和 .csv 文件（{0}）", path.name))
     if header is not None:
         start = header - 1
     else:
@@ -803,5 +806,8 @@ def ask(t: Table, question: str, eps: list[Endpoint], samples: int = SAMPLE_ROWS
                 tried.append(f"{ep.label}: {e}")
                 break
             tried.append(f"{ep.label}: ok")
+            from .office import record
+
+            record("sheet ask", ep, reply.model, tok_in or None, tok_out or None, calls=attempt + 1)
             return Answer(plan, res, ep.label, reply.model, tok_in or None, tok_out or None, tried)
     raise SheetError(tr("没有模型给出能用的计划（{0}）：{1}", "; ".join(tried), last))

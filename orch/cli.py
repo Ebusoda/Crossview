@@ -403,10 +403,15 @@ def cmd_report(args: argparse.Namespace) -> int:
         raise OrchError(str(e)) from None
     executors = {pool: str(pcfg.get("executor", "")) for pool, pcfg in orch.cfg.pools.items()}
     rep = build_report(orch.store, orch.cfg.agents_dir, executors, since=since, task_type=args.type)
+    from . import office
+
     if args.json:
+        rep["office"] = office.usage()
         print(json.dumps(rep, ensure_ascii=False, indent=2))
     else:
         print(format_report(rep), end="")
+        print(tr("\n办公（orch sheet / orch doc，不分项目）："))
+        print("\n".join(office.usage_lines()))
     return 0
 
 
@@ -758,6 +763,8 @@ def cmd_office(args: argparse.Namespace) -> int:
     words = redact.saved_words()
     print(tr("脱敏：默认打开（身份证、手机号、银行卡、座机、邮箱、标签后的姓名）；单次关闭用 --no-mask"))
     print(tr("自己要隐藏的词：{0} 个，在 {1}（一行一个）", len(words), redact.words_path()))
+    print(tr("办公用量（问表格、写文档，所有项目合计）："))
+    print("\n".join(office.usage_lines()))
     return 0
 
 

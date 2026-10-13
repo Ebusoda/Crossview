@@ -41,6 +41,10 @@ Python 3.11+, standard library only. Built and used on Windows. A full guide in 
   in the result. `orch office sensitive on` (or `--sensitive`) uses only models based in China
   (DeepSeek, Qwen, Doubao). Masking catches common patterns, not everything: check your workplace's rules
   before sending work documents to an outside model, and never use it for classified material.
+- Old formats work too: .doc, .wps, .rtf, .xls and .et files are converted first by Word / Excel, WPS or
+  LibreOffice if one is installed (the original is never changed).
+- The same office work from a chat app: the MCP server (`orch mcp`) offers `office_sheet_ask` and `office_doc`.
+  `orch office` and `orch report` show how many calls and tokens the office work used.
 - Hand the whole project to a new chat session with one generated file (`orch handoff export`).
 - Try all of it offline with fake models first (`orch demo`).
 
@@ -182,6 +186,9 @@ Tools: `orch_list_projects`, `orch_list_tasks`, `orch_task`, `orch_add_task`, `o
 
 ## Changelog
 
+- **0.4.0**: old .doc / .xls / .wps files open through Word, Excel, WPS or LibreOffice; office tools in the MCP
+  server (`office_sheet_ask`, `office_doc`); office calls and tokens are recorded and shown by `orch office` and
+  `orch report` (counts only, never content).
 - **0.3.9**: `orch init` writes the config file with English comments (Chinese when orch's language
   is Chinese).
 - **0.3.8**: Gemini CLI runs in each task's new worktree (`--skip-trust`); the guide says it needs a Gemini API key

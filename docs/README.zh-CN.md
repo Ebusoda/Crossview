@@ -26,6 +26,9 @@
   或 `mask_words.txt` 指定的词，都换成占位符，结果回来后再换回原文。`orch office sensitive on`（或 `--sensitive`）
   只用国内模型（DeepSeek、千问、豆包）。脱敏只能识别常见格式，不能保证找全：工作文件发给外部模型前先确认单位规定，
   涉密文件一律不要用。
+- 老格式也能用：.doc、.wps、.rtf、.xls、.et 文件会先用电脑上装的 Word / Excel、WPS 或 LibreOffice 转换（原文件不动）。
+- 在聊天应用里也能用办公功能：MCP 服务（`orch mcp`）提供 `office_sheet_ask` 和 `office_doc`。
+  `orch office` 和 `orch report` 会显示办公功能用了多少次、多少 token。
 - 用一个自动生成的文件把整个项目交给新的聊天会话（`orch handoff export`）。
 - 先用假模型离线把这些都试一遍（`orch demo`）。
 
@@ -142,6 +145,7 @@ python -m orch -p 你的仓库 report
 
 ## 更新记录
 
+- **0.4.0**：老格式的 .doc、.xls、.wps 能通过 Word、Excel、WPS 或 LibreOffice 打开；MCP 服务加了办公工具（`office_sheet_ask`、`office_doc`）；办公功能的调用次数和 token 会记下来，`orch office` 和 `orch report` 里能看到（只记数量，不记内容）。
 - **0.3.9**：`orch init` 生成的配置文件，语言是中文时注释是中文，其他语言时是英文。
 - **0.3.8**：Gemini CLI 能在每个任务新建的 worktree 里运行（`--skip-trust`）；说明里写清楚它要用 API key 或付费方案，
   因为个人免费登录现在会被拒绝。
