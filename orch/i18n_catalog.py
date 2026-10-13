@@ -549,3 +549,9 @@ _ZH_FILL: dict[str, tuple[str, str]] = {
     "模型没有按要求给出各字段的内容": ("The model did not answer with the content of each field", "モデルが各項目の内容を返しませんでした"),
 }
 CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_FILL.items()})
+
+# Gemini CLI executor
+CATALOG["npm install -g @google/gemini-cli   （需要 Node.js）"] = {
+    "src": "zh", "en": "npm install -g @google/gemini-cli   (needs Node.js)",
+    "ja": "npm install -g @google/gemini-cli   （Node.js が必要）"}
+CATALOG["your Google account"] = {"src": "en", "zh": "你的 Google 账号", "ja": "あなたの Google アカウント"}

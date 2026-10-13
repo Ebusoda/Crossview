@@ -9,7 +9,7 @@
 ## 现在能用它做什么
 
 - 在命令行里，或者在 Claude Desktop 这类聊天应用里（MCP），把编程任务交给你自己的模型。测试通过才算完成。
-- 用你已有的账号：Claude Code、Codex 的订阅，以及 DeepSeek、GPT、Claude、千问、Gemini、豆包的 API key（`orch connect` 会列出哪些能用）。
+- 用你已有的账号：Claude Code、Codex 的订阅，用 Google 账号登录的 Gemini CLI，以及 DeepSeek、GPT、Claude、千问、Gemini、豆包的 API key（`orch connect` 会列出哪些能用）。
 - 每个任务先交给合适的最便宜的模型；失败、崩溃、被限流或卡住时换更强的模型，下一个模型读交接说明接着做。
 - 把一个大目标拆成任务，你批准后再执行（`orch plan`）；或者让两家模型各出方案、互相点评，裁判写决策记录（`orch decide`）。
 - 同时跑多个任务，每个都在自己的 git worktree 里，自动或手动合并。
@@ -51,7 +51,7 @@
 命令行 / MCP ──▶ 编排器（确定性的状态机，控制决策不交给任何 LLM）
                  ├─ 上下文管理器    项目记忆 → 检索 → 预算 → .task/CONTEXT.md
                  ├─ 模型与预算      路由阶梯、熔断、额度保留、节奏闸门、单任务预算
-                 ├─ 执行者          Claude Code · Codex · opencode（DeepSeek 等）· 直接 API
+                 ├─ 执行者          Claude Code · Codex · Gemini CLI · opencode（DeepSeek 等）· 直接 API
                  ├─ 工作区          每个任务一个 git worktree、checkpoint、squash 合并
                  ├─ 验收            验收命令和基线命令决定成败
                  └─ 记忆写入        最近变更、决策索引、待确认的经验 → docs/project/
@@ -78,7 +78,9 @@ python -m orch -p playground/demo status
 **2. 连接你自己的模型**：`python -m orch connect` 会列出现在能用哪些。
 
 - **订阅**：安装并登录你付费的命令行工具。Claude Code（`npm install -g @anthropic-ai/claude-code`，然后运行一次 `claude`）
-  用你的 Claude 套餐；Codex（`npm install -g @openai/codex`，然后运行一次 `codex`）用你的 ChatGPT 套餐。
+  用你的 Claude 套餐；Codex（`npm install -g @openai/codex`，然后运行一次 `codex`）用你的 ChatGPT 套餐；
+  Gemini CLI（`npm install -g @google/gemini-cli`，然后运行一次 `gemini`）用你的 Google 账号。Gemini 默认不在路由里，
+  想用就把 `"gemini_sub"` 加进 `.agents/orch.toml` 里 `[routing]` 的对应行。
 - **API key**（DeepSeek、GPT、Claude、千问、Gemini、豆包）：`python -m orch key set deepseek` 保存 key
   （输入时不显示；在 Windows 上会按你的账号加密），或者设置对应的环境变量（`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、
   `ANTHROPIC_API_KEY`、`DASHSCOPE_API_KEY`、`GEMINI_API_KEY`、`ARK_API_KEY`）。`python -m orch key list` 查看哪些已设置。
@@ -139,6 +141,8 @@ python -m orch -p 你的仓库 report
 
 ## 更新记录
 
+- **0.3.7**：Gemini CLI 可以当写代码的 agent（`executor = "gemini"`，池 `gemini_sub`），和 Claude Code、Codex 并列；
+  审查和规划时用只读模式。脱敏统计只数真正发出去的内容。
 - **0.3.6**：办公文档。`orch sheet` 用大白话问 Excel、CSV 表格（模型只看列名和几行样例，数字在你电脑上算），
   结果存成 Excel 并画图。`orch doc` 起草、润色 Word，按模板填写，可用公文版式。发出去前自动脱敏；
   敏感模式只用国内模型。

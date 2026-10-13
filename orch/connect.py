@@ -20,6 +20,7 @@ from .tomledit import add_pool, set_route
 
 CLIS = [("claude", "Claude Code", "your Claude subscription", "npm install -g @anthropic-ai/claude-code; then run `claude` once to sign in"),
         ("codex", "Codex CLI", "your ChatGPT subscription", "npm install -g @openai/codex; then run `codex` once to sign in"),
+        ("gemini", "Gemini CLI", "your Google account", "npm install -g @google/gemini-cli; then run `gemini` once to sign in"),
         ("opencode", "opencode", "any API provider below", "npm install -g opencode-ai")]   # translated where shown
 
 

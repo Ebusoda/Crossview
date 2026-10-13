@@ -118,6 +118,12 @@ model = ""
 reserve = 0.10                         # Codex 目前不在事件里报告用量，这一项暂时不起作用
 resume_max_tokens = 200000
 
+[pools.gemini_sub]
+# Gemini CLI，用你自己的 Google 账号登录（或 GEMINI_API_KEY）。默认不在路由里：装好并登录后，
+# 把 "gemini_sub" 加进 [routing] 里想用的那几行就行。
+executor = "gemini"
+model = ""                             # 空 = 用 gemini 自己的默认模型
+
 [pools.deepseek]
 executor = "opencode"
 model = "deepseek/deepseek-flash"      # 以 `opencode models` 的输出为准
@@ -157,6 +163,12 @@ command = "codex"
 # 想要更强的隔离：删掉这两项，并把 Python 装成"所有用户"（装在 C:/Program Files 下）。在 macOS / Linux 上这项无效。
 args = ["--json", "--sandbox", "workspace-write", "-c", "windows.sandbox=unelevated"]
 prompt_via_stdin = true                # 提示词作为 <stdin> 块直接给 Codex（官方支持）。实测 T-0012：15 轮 -> 5 轮
+
+[executors.gemini]
+command = "gemini"
+# --approval-mode yolo：无人值守时自动批准它要做的操作（改文件、跑命令）。它只在任务自己的 worktree 里干活，
+# 和 Claude Code 的 acceptEdits、Codex 的 workspace-write 同理；只读的规划和审查会自动换成 plan 模式。
+args = ["--output-format", "stream-json", "--approval-mode", "yolo"]
 
 [executors.opencode]
 command = "opencode"

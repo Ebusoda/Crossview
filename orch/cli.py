@@ -74,6 +74,7 @@ INSTALL_HINTS = {
     "git": "winget install Git.Git",
     "claude": tr("irm https://claude.ai/install.ps1 | iex   或   winget install Anthropic.ClaudeCode"),
     "codex": tr("npm install -g @openai/codex   （需要 Node.js: winget install OpenJS.NodeJS.LTS）"),
+    "gemini": tr("npm install -g @google/gemini-cli   （需要 Node.js）"),
     "opencode": tr("npm install -g opencode-ai   （需要 Node.js）"),
 }
 
@@ -1157,7 +1158,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.set_defaults(fn=cmd_demo)
 
     pr = sub.add_parser("probe", help=tr("M0：用真实 CLI 跑一个极小任务"))
-    pr.add_argument("executor", choices=["claude_code", "codex", "opencode"])
+    pr.add_argument("executor", choices=["claude_code", "codex", "gemini", "opencode"])
     pr.add_argument("--model", default="")
     pr.add_argument("--dir", default="probe")
     pr.add_argument("--timeout", type=float, default=10, help=tr("分钟"))

@@ -9,11 +9,13 @@ from .base import Adapter, RunContext
 from .claude_code import ClaudeCodeAdapter
 from .codex import CodexAdapter
 from .fake import FakeAdapter
+from .gemini import GeminiAdapter
 from .opencode import OpencodeAdapter
 
 REGISTRY: dict[str, type[Adapter]] = {
     "claude_code": ClaudeCodeAdapter,
     "codex": CodexAdapter,
+    "gemini": GeminiAdapter,
     "opencode": OpencodeAdapter,
     "fake": FakeAdapter,
     "api": ApiAdapter,

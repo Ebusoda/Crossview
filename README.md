@@ -12,7 +12,7 @@ Python 3.11+, standard library only. Built and used on Windows. A full guide in 
 
 - Give a coding task to your own models from the command line, or from a chat app such as Claude Desktop (MCP).
   It counts as done only when your tests pass.
-- Use the accounts you already have: Claude Code and Codex subscriptions, and API keys for DeepSeek, GPT, Claude,
+- Use the accounts you already have: Claude Code and Codex subscriptions, Gemini CLI with your Google account, and API keys for DeepSeek, GPT, Claude,
   Qwen, Gemini and Doubao (`orch connect` shows what works).
 - Start each task on the cheapest suitable model and move it to a stronger one when it fails, crashes, hits a
   rate limit or gets stuck; the next model continues from a handoff note.
@@ -71,7 +71,7 @@ Python 3.11+, standard library only. Built and used on Windows. A full guide in 
 CLI / MCP ──▶ Orchestrator (deterministic state machine; no LLM makes control decisions)
                ├─ Context Manager    project memory → retrieval → budget → .task/CONTEXT.md
                ├─ Model/Budget       routing ladder, breakers, quota reserve, pacing gate, budgets
-               ├─ Executors          Claude Code · Codex · opencode (DeepSeek…) · direct API
+               ├─ Executors          Claude Code · Codex · Gemini CLI · opencode (DeepSeek…) · direct API
                ├─ Workspace          one git worktree per task, checkpoints, squash merge
                ├─ Verify             acceptance + baseline commands decide success
                └─ Memory Writer      recent changes, ADR index, candidate lessons → docs/project/
@@ -101,7 +101,9 @@ python -m orch -p playground/demo status
 
 - *Subscriptions*: install and sign in to the CLIs you pay for. Claude Code
   (`npm install -g @anthropic-ai/claude-code`, then run `claude` once) uses your Claude plan; Codex
-  (`npm install -g @openai/codex`, then run `codex` once) uses your ChatGPT plan.
+  (`npm install -g @openai/codex`, then run `codex` once) uses your ChatGPT plan; Gemini CLI
+  (`npm install -g @google/gemini-cli`, then run `gemini` once) uses your Google account. Gemini is not in the
+  default routes: add `"gemini_sub"` to the `[routing]` lines in `.agents/orch.toml` where you want it.
 - *API keys* (DeepSeek, GPT, Claude, Qwen, Gemini, Doubao): save a key with
   `python -m orch key set deepseek` (input is hidden; on Windows the key is encrypted for your account), or set the
   provider's environment variable (`DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DASHSCOPE_API_KEY`,
@@ -179,6 +181,8 @@ Tools: `orch_list_projects`, `orch_list_tasks`, `orch_task`, `orch_add_task`, `o
 
 ## Changelog
 
+- **0.3.7**: Gemini CLI as a coding agent (`executor = "gemini"`, pool `gemini_sub`), next to Claude Code and
+  Codex; reviews and plans run it read-only. The masking summary counts only details that were actually sent.
 - **0.3.6**: office work. `orch sheet` answers questions about Excel and CSV tables (the model sees only the
   column names and a few sample rows; the numbers are computed on your computer) and saves the result as
   .xlsx with a chart. `orch doc` drafts, polishes and fills in Word documents, with an official-document

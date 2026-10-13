@@ -80,14 +80,17 @@ class Masker:
         self.words = sorted({w.strip() for w in words if w and w.strip()}, key=len, reverse=True)
         self.real: dict[str, str] = {}          # placeholder -> real value
         self.token: dict[tuple[str, str], str] = {}
+        self.sent: set[tuple[str, str]] = set()   # placeholders that actually went out (for the summary)
 
-    def _put(self, kind: str, value: str) -> str:
+    def _put(self, kind: str, value: str, sent: bool = True) -> str:
         key = (kind, re.sub(r"[ -]", "", value) if kind in ("PHONE", "CARD", "ID") else value)
         if key not in self.token:
             n = sum(1 for k, _ in self.token if k == kind) + 1
             tok = f"[{kind}_{n}]"
             self.token[key] = tok
             self.real[tok] = value
+        if sent:
+            self.sent.add(key)
         return self.token[key]
 
     def mask(self, text: str) -> str:
@@ -100,6 +103,7 @@ class Masker:
         for (kind, value), tok in sorted(self.token.items(), key=lambda kv: -len(kv[0][1])):
             if kind == "NAME" and len(value) >= 2 and value in text:
                 text = text.replace(value, tok)
+                self.sent.add((kind, value))
         text = _EMAIL.sub(lambda m: self._put("EMAIL", m.group(0)), text)
         text = _ID.sub(lambda m: self._put("ID", m.group(1)) if _id_ok(m.group(1)) else m.group(0), text)
 
@@ -131,7 +135,7 @@ class Masker:
             if pat.search(header):
                 for v in values:
                     if v:
-                        self._put(kind, v)
+                        self._put(kind, v, sent=False)
                 return
 
     def unmask(self, text: str) -> str:
@@ -151,12 +155,12 @@ class Masker:
     def summary(self) -> str:
         if not self.enabled:
             return tr("没有脱敏（--no-mask）")
-        if not self.real:
+        if not self.sent:
             return tr("脱敏：没找到需要隐藏的个人信息")
         names = {"NAME": tr("姓名"), "PHONE": tr("手机号"), "ID": tr("身份证号"), "CARD": tr("银行卡号"),
                  "TEL": tr("座机号"), "EMAIL": tr("邮箱"), "WORD": tr("你指定的词")}
         counts: dict[str, int] = {}
-        for kind, _ in self.token:
+        for kind, _ in self.sent:
             counts[kind] = counts.get(kind, 0) + 1
         return tr("脱敏：{0}（发出去的是占位符，结果里已换回原文）",
                   tr("，").join(f"{names[k]} {n}" for k, n in counts.items()))
