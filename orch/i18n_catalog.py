@@ -436,3 +436,116 @@ _EN: dict[str, tuple[str, str]] = {
 }
 
 CATALOG.update({k: {"src": "en", "zh": zh, "ja": ja} for k, (zh, ja) in _EN.items()})
+
+# orch sheet: questions about Excel / CSV
+_ZH_SHEET: dict[str, tuple[str, str]] = {
+    "{0} 不是 .xlsx 文件（老的 .xls 请先在 Excel 里另存为 .xlsx）": ("{0} is not an .xlsx file (save an old .xls as .xlsx in Excel first)", "{0} は .xlsx ファイルではありません（古い .xls は Excel で .xlsx として保存し直してください）"),
+    "{0} 里没有工作表": ("{0} has no sheets", "{0} にシートがありません"),
+    "没有叫「{0}」的工作表；有：{1}": ("No sheet named \"{0}\"; there are: {1}", "「{0}」というシートはありません。あるのは: {1}"),
+    "找不到文件：{0}": ("File not found: {0}", "ファイルが見つかりません: {0}"),
+    "只支持 .xlsx 和 .csv 文件（{0}）": ("Only .xlsx and .csv files are supported ({0})", ".xlsx と .csv ファイルのみ対応しています（{0}）"),
+    "这个表是空的": ("This table is empty", "この表は空です"),
+    "模型的回答里没有 JSON 计划": ("The model's answer contains no JSON plan", "モデルの回答に JSON の計画がありません"),
+    "模型给的 JSON 计划格式不对：{0}": ("The model's JSON plan is malformed: {0}", "モデルの JSON 計画の形式が正しくありません: {0}"),
+    "计划里的列「{0}」（{1}）不在表里；可用的列：{2}": ("Column \"{0}\" ({1}) in the plan is not in the table; columns: {2}", "計画の列「{0}」（{1}）は表にありません。使える列: {2}"),
+    "计划的 {0} 写法不对": ("The plan's {0} is not written correctly", "計画の {0} の書き方が正しくありません"),
+    "不认识的条件 {0}": ("Unknown condition {0}", "不明な条件 {0}"),
+    "between 需要 [下限, 上限]": ("between needs [low, high]", "between には [下限, 上限] が必要です"),
+    "不认识的时间分组 {0}": ("Unknown time grouping {0}", "不明な期間の区切り {0}"),
+    "排序用的列「{0}」不在结果里；结果的列：{1}": ("Sort column \"{0}\" is not in the result; result columns: {1}", "並べ替えの列「{0}」は結果にありません。結果の列: {1}"),
+    "……共 {0} 行，完整结果在 Excel 文件里": ("... {0} rows in all; the full result is in the Excel file", "……全 {0} 行。結果の全体は Excel ファイルにあります"),
+    "不认识的服务商 {0}；可以用：{1}": ("Unknown provider {0}; available: {1}", "不明なプロバイダー {0}。使えるもの: {1}"),
+    "{0} 还没有 key：运行 orch key set {1}": ("{0} has no key yet: run orch key set {1}", "{0} のキーがまだありません。orch key set {1} を実行してください"),
+    "{0} 没有默认模型，请用 --model 指定": ("{0} has no default model; pass --model", "{0} には既定のモデルがありません。--model で指定してください"),
+    "还没有能用的模型：先运行 orch key set deepseek（或 qwen、openai、anthropic、gemini）": ("No model available yet: run orch key set deepseek first (or qwen, openai, anthropic, gemini)", "使えるモデルがまだありません。先に orch key set deepseek を実行してください（または qwen、openai、anthropic、gemini）"),
+    "没有模型给出能用的计划（{0}）：{1}": ("No model gave a plan that runs ({0}): {1}", "実行できる計画を返したモデルはありません（{0}）: {1}"),
+    "工作表：{0}（现在用的是「{1}」，换一个用 --sheet）": ("Sheets: {0} (using \"{1}\"; pick another with --sheet)", "シート: {0}（いまは「{1}」を使用。別のシートは --sheet で指定）"),
+    "{0} 行，{1} 列": ("{0} rows, {1} columns", "{0} 行、{1} 列"),
+    "前几行": ("First rows", "先頭の行"),
+    "要问什么？例如：orch sheet ask 表.xlsx \"每个部门花了多少\"": ("What is the question? For example: orch sheet ask table.xlsx \"how much did each department spend\"", "質問は何ですか？ 例: orch sheet ask 表.xlsx \"部署ごとの支出は\""),
+    "发给 {0}：列名和类型{1}；整张表不发出去，数字在本机计算": ("Sending to {0}: column names and types{1}. The table itself is not sent; the numbers are computed on this computer", "{0} に送る内容: 列名と型{1}。表そのものは送らず、数値はこのパソコンで計算します"),
+    "，加前 {0} 行样例": (", plus the first {0} rows as samples", "、先頭 {0} 行のサンプル"),
+    "说明：{0}": ("Note: {0}", "説明: {0}"),
+    "结果表：{0}": ("Result table: {0}", "結果の表: {0}"),
+    "图表：{0}（用浏览器打开）": ("Chart: {0} (open it in a browser)", "グラフ: {0}（ブラウザーで開いてください）"),
+    "计划：{0}（以后可以 orch sheet run 文件 计划.json 直接重算，不用模型）": ("Plan: {0} (orch sheet run FILE PLAN.json recomputes it later without a model)", "計画: {0}（あとで orch sheet run ファイル 計画.json でモデルなしに再計算できます）"),
+    "模型：{0} {1}，token 输入 {2} / 输出 {3}": ("Model: {0} {1}, tokens in {2} / out {3}", "モデル: {0} {1}、トークン 入力 {2} / 出力 {3}"),
+    "问 Excel / CSV 表格：sheet show 文件 | ask 文件 \"问题\" | run 文件 计划.json": ("ask questions about an Excel / CSV table: sheet show FILE | ask FILE \"question\" | run FILE PLAN.json", "Excel / CSV の表に質問: sheet show ファイル | ask ファイル \"質問\" | run ファイル 計画.json"),
+    "问题（ask）或计划文件（run）": ("the question (ask) or the plan file (run)", "質問（ask）または計画ファイル（run）"),
+    "工作表名或序号（默认第一个）": ("sheet name or number (default: the first)", "シート名または番号（既定は最初のシート）"),
+    "标题在第几行（默认第一个非空行）": ("row with the column names (default: the first non-empty row)", "列名のある行（既定は最初の空でない行）"),
+    "只发列名，不发样例行": ("send only the column names, no sample rows", "列名だけを送り、サンプル行は送らない"),
+    "只显示会发给模型的内容，不调用": ("only show what would be sent to the model; do not call it", "モデルに送る内容を表示するだけで、呼び出さない"),
+    "结果放在哪个文件夹（默认 文件名_orch）": ("folder for the results (default: NAME_orch next to the file)", "結果を置くフォルダー（既定はファイルの隣の 名前_orch）"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_SHEET.items()})
+
+# orch doc: Word drafting and polishing
+_ZH_DOC: dict[str, tuple[str, str]] = {
+    "已保存：{0}（约 {1} 字）": ("Saved: {0} (about {1} words)", "保存しました: {0}（約 {1} 字）"),
+    "写和改 Word：doc draft \"要求\" | polish 文件 \"要求\" | show 文件": ("write and edit Word documents: doc draft \"request\" | polish FILE \"request\" | show FILE", "Word 文書の作成と修正: doc draft \"依頼\" | polish ファイル \"依頼\" | show ファイル"),
+    "要求（draft）或文件（polish、show）": ("the request (draft) or the file (polish, show)", "依頼（draft）またはファイル（polish、show）"),
+    "怎么改（polish，默认润色）": ("what to change (polish; default: tidy up the wording)", "直し方（polish。既定は文章を整える）"),
+    "参考材料（.docx / .txt / .md），可多次指定": ("reference material (.docx / .txt / .md); may be given more than once", "参考資料（.docx / .txt / .md）。複数指定できます"),
+    "版式：plain 普通（默认），gongwen 公文": ("layout: plain (default) or gongwen (Chinese official document)", "体裁: plain 通常（既定）、gongwen 中国の公文書"),
+    "保存成哪个文件（默认用标题命名）": ("file to save to (default: named after the title)", "保存先のファイル（既定はタイトル名）"),
+    "约 {0} 字": ("about {0} words", "約 {0} 字"),
+    "发给 {0}：你的要求{1}": ("Sending to {0}: your request{1}", "{0} に送る内容: あなたの依頼{1}"),
+    "发给 {0}：整篇文档（约 {1} 字）": ("Sending to {0}: the whole document (about {1} words)", "{0} に送る内容: 文書全体（約 {1} 字）"),
+    "要看哪个文件？例如：orch doc show 总结.docx": ("Which file? For example: orch doc show report.docx", "どのファイルですか？ 例: orch doc show 報告.docx"),
+    "要写什么？例如：orch doc draft \"写一份国庆值班安排的通知\"": ("What should it write? For example: orch doc draft \"a notice with the holiday duty roster\"", "何を書きますか？ 例: orch doc draft \"休日当番の通知を書いて\""),
+    "要改哪个文件？例如：orch doc polish 总结.docx \"压缩到 800 字\"": ("Which file should it edit? For example: orch doc polish report.docx \"shorten to 800 words\"", "どのファイルを直しますか？ 例: orch doc polish 報告.docx \"800 字に縮めて\""),
+    "和 {0} 个材料文件": (" and {0} material file(s)", "と資料ファイル {0} 件"),
+    "_改": ("_edited", "_修正"),
+    "只支持 .docx、.txt 和 .md 文件（{0}）": ("Only .docx, .txt and .md files are supported ({0})", ".docx、.txt、.md ファイルのみ対応しています（{0}）"),
+    "不认识的版式 {0}；可以用：{1}": ("Unknown layout {0}; available: {1}", "不明な体裁 {0}。使えるもの: {1}"),
+    "内容太长（{0} 字符，上限 {1}）：请分几段处理": ("Too long ({0} characters, limit {1}): split it into parts", "長すぎます（{0} 文字、上限 {1}）。いくつかに分けてください"),
+    "这个文档没有文字": ("This document has no text", "この文書には文字がありません"),
+    "文档": ("document", "文書"),
+    "{0} 不是 .docx 文件（老的 .doc 请先在 Word 里另存为 .docx）": ("{0} is not a .docx file (save an old .doc as .docx in Word first)", "{0} は .docx ファイルではありません（古い .doc は Word で .docx として保存し直してください）"),
+    "没有模型给出回答（{0}）": ("No model answered ({0})", "回答したモデルはありません（{0}）"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_DOC.items()})
+
+# masking and sensitive mode
+_ZH_MASK: dict[str, tuple[str, str]] = {
+    "敏感模式：{0}": ("Sensitive mode: {0}", "機密モード: {0}"),
+    "脱敏：默认打开（身份证、手机号、银行卡、座机、邮箱、标签后的姓名）；单次关闭用 --no-mask": ("Masking: on by default (ID numbers, mobile numbers, bank cards, landlines, e-mail, names after a label); turn it off once with --no-mask", "マスキング: 既定で有効（身分証番号、携帯番号、銀行カード、固定電話、メール、ラベルの後の氏名）。1 回だけ無効にするには --no-mask"),
+    "自己要隐藏的词：{0} 个，在 {1}（一行一个）": ("Your own words to hide: {0}, in {1} (one per line)", "独自に隠す語: {0} 件、{1}（1 行に 1 語）"),
+    "另外要隐藏的词，逗号分隔，例如人名、单位名（可多次指定）": ("more words to hide, comma-separated, such as names or organisations (may be repeated)", "ほかに隠す語。カンマ区切りで人名や組織名など（複数指定可）"),
+    "不脱敏（默认会隐藏身份证、手机号等）": ("do not mask (by default ID and phone numbers and the like are hidden)", "マスキングしない（既定では身分証番号や電話番号などを隠します）"),
+    "敏感模式：只用国内模型（DeepSeek、千问、豆包）": ("sensitive mode: use only models based in China (DeepSeek, Qwen, Doubao)", "機密モード: 中国国内のモデルのみ使用（DeepSeek、Qwen、Doubao）"),
+    "办公设置：office 查看 | office sensitive on|off": ("office settings: office (show) | office sensitive on|off", "オフィス設定: office（表示）| office sensitive on|off"),
+    "用法：orch office sensitive on|off": ("Usage: orch office sensitive on|off", "使い方: orch office sensitive on|off"),
+    "开（只用国内模型：DeepSeek、千问、豆包）": ("on (only models based in China: DeepSeek, Qwen, Doubao)", "オン（中国国内のモデルのみ: DeepSeek、Qwen、Doubao）"),
+    "关": ("off", "オフ"),
+    "敏感模式下没有能用的国内模型：先运行 orch key set deepseek（或 qwen）": ("Sensitive mode, but no model based in China is available: run orch key set deepseek (or qwen) first", "機密モードで使える国内モデルがありません。先に orch key set deepseek（または qwen）を実行してください"),
+    "敏感模式下只能用国内模型（{0}）；{1} 不行": ("Sensitive mode allows only models based in China ({0}); not {1}", "機密モードでは国内モデル（{0}）のみ使えます。{1} は使えません"),
+    "脱敏：{0}（发出去的是占位符，结果里已换回原文）": ("Masked: {0} (placeholders were sent; the result has the real values back)", "マスキング: {0}（送ったのはプレースホルダー。結果では元の値に戻しています）"),
+    "没有脱敏（--no-mask）": ("Not masked (--no-mask)", "マスキングなし（--no-mask）"),
+    "脱敏：没找到需要隐藏的个人信息": ("Masking: no personal details found to hide", "マスキング: 隠す必要のある個人情報は見つかりませんでした"),
+    "姓名": ("names", "氏名"),
+    "手机号": ("mobile numbers", "携帯番号"),
+    "身份证号": ("ID numbers", "身分証番号"),
+    "银行卡号": ("bank card numbers", "銀行カード番号"),
+    "座机号": ("landline numbers", "固定電話番号"),
+    "邮箱": ("e-mail addresses", "メールアドレス"),
+    "你指定的词": ("your words", "指定した語"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_MASK.items()})
+
+# orch doc fill: templates
+_ZH_FILL: dict[str, tuple[str, str]] = {
+    "写和改 Word：doc draft \"要求\" | polish 文件 \"要求\" | fill 模板 \"要求\" | show 文件": ("write and edit Word documents: doc draft \"request\" | polish FILE \"request\" | fill TEMPLATE \"request\" | show FILE", "Word 文書の作成と修正: doc draft \"依頼\" | polish ファイル \"依頼\" | fill テンプレート \"依頼\" | show ファイル"),
+    "要求（draft）或文件（polish、fill、show）": ("the request (draft) or the file (polish, fill, show)", "依頼（draft）またはファイル（polish、fill、show）"),
+    "怎么改（polish，默认润色）；要填什么（fill）": ("what to change (polish; default: tidy up the wording); what to fill in (fill)", "直し方（polish。既定は文章を整える）、埋める内容（fill）"),
+    "模板里的字段：{0}": ("Fields in the template: {0}", "テンプレートの項目: {0}"),
+    "发给 {0}：字段名和你的要求{1}（模板的其他内容不发）": ("Sending to {0}: the field names and your request{1} (nothing else from the template)", "{0} に送る内容: 項目名とあなたの依頼{1}（テンプレートのほかの内容は送りません）"),
+    "已保存：{0}": ("Saved: {0}", "保存しました: {0}"),
+    "用法：orch doc fill 模板.docx \"要填什么\" [--from 材料]": ("Usage: orch doc fill template.docx \"what to fill in\" [--from material]", "使い方: orch doc fill テンプレート.docx \"埋める内容\" [--from 資料]"),
+    "这些字段没填（材料里没有）：{0}，在 Word 里补上": ("These fields were left empty (not in your request or material): {0}; fill them in Word", "これらの項目は空のままです（依頼や資料にありません）: {0}。Word で補ってください"),
+    "_填好": ("_filled", "_記入済み"),
+    "模板里没有 {{字段}}：在 Word 里把要填的地方写成 {{标题}}、{{日期}} 这样": ("The template has no {{fields}}: in Word, write the places to fill as {{title}}, {{date}} and so on", "テンプレートに {{項目}} がありません。Word で埋めたい所を {{タイトル}}、{{日付}} のように書いてください"),
+    "模型没有按要求给出各字段的内容": ("The model did not answer with the content of each field", "モデルが各項目の内容を返しませんでした"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_FILL.items()})

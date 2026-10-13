@@ -27,6 +27,20 @@ Python 3.11+, standard library only. Built and used on Windows. A full guide in 
 - See the Claude Code and Codex sessions you open yourself on this computer, next to orch's own: project, model,
   last use, whether one is in use now and its tokens (`orch sessions`). Only times, folders and token counts are
   read from the CLIs' session logs; conversation content and sign-in files are never opened.
+- Ask questions about an Excel or CSV table in plain words (`orch sheet ask sales.xlsx "which department spent most this quarter?"`).
+  The model sees only the column names and five sample rows (none with `--no-samples`); the numbers are computed
+  on your computer over the whole table. You get the answer, an .xlsx of the result and a chart.
+- Draft or polish Word documents (`orch doc draft "a notice about the holiday duty roster" --from notes.docx`,
+  `orch doc polish report.docx "shorten to 800 words"`). You get a real .docx; `--style gongwen` lays it out
+  like a Chinese official document. Drafting sends your request and the files you name; polishing sends the document.
+- Fill in your own Word template: write `{{title}}`, `{{date}}` where text goes, then
+  `orch doc fill template.docx "October report: ..."`. Only the field names and your request are sent, and the
+  template keeps its layout.
+- Personal details are masked before anything is sent (ID, mobile, bank card and landline numbers, e-mail,
+  names after a label such as 联系人：, and your own words with `--mask` or in `mask_words.txt`) and put back
+  in the result. `orch office sensitive on` (or `--sensitive`) uses only models based in China
+  (DeepSeek, Qwen, Doubao). Masking catches common patterns, not everything: check your workplace's rules
+  before sending work documents to an outside model, and never use it for classified material.
 - Hand the whole project to a new chat session with one generated file (`orch handoff export`).
 - Try all of it offline with fake models first (`orch demo`).
 
@@ -134,6 +148,9 @@ into yours when you are happy with it.
 | `agents`, `agents pause / resume POOL`, `agents swap TASK POOL` | control panel: every agent's state and use; pause, resume, reassign |
 | `sessions [--days N] [--all]` | Claude Code / Codex sessions on this computer, hand-opened ones included (read-only) |
 | `report`, `route suggest / apply` | cost and quality per task type and pool; routing suggestions |
+| `sheet show / ask / run FILE` | questions about an Excel / CSV table; `run` repeats a saved plan without a model |
+| `doc draft / polish / fill / show` | write, edit or fill in a Word document (`--from`, `--style plain / gongwen`) |
+| `office [sensitive on / off]` | office settings: sensitive mode, your word list for masking |
 | `handoff export` | a project checkpoint for a new chat session |
 | `key set / list / remove PROVIDER`, `connect [PROVIDER]` | your own model accounts |
 | `lang [zh/en/ja]` | language of orch's messages |
@@ -162,6 +179,10 @@ Tools: `orch_list_projects`, `orch_list_tasks`, `orch_task`, `orch_add_task`, `o
 
 ## Changelog
 
+- **0.3.6**: office work. `orch sheet` answers questions about Excel and CSV tables (the model sees only the
+  column names and a few sample rows; the numbers are computed on your computer) and saves the result as
+  .xlsx with a chart. `orch doc` drafts, polishes and fills in Word documents, with an official-document
+  layout. Personal details are masked before sending; sensitive mode uses only models based in China.
 - **0.3.5**: `orch agents`, one panel for every agent: what it is doing, usage today and this week, subscription
   quota, recent success rate and last error, with pause, resume and swap. `orch sessions` lists the Claude Code
   and Codex sessions on this computer, including ones you opened yourself (read-only: times, folder and tokens only).

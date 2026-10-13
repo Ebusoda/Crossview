@@ -609,6 +609,157 @@ def cmd_lang(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sheet(args: argparse.Namespace) -> int:
+    import json
+
+    from . import office, redact, sheet
+
+    try:
+        t = sheet.load(Path(args.file), args.sheet, args.header)
+        if args.action == "show":
+            if t.sheets:
+                print(tr("工作表：{0}（现在用的是「{1}」，换一个用 --sheet）", ", ".join(t.sheets), t.name))
+            print(tr("{0} 行，{1} 列", len(t.rows), len(t.headers)))
+            for c in sheet.profile(t):
+                extra = f"  {c['min']} .. {c['max']}" if "min" in c else ""
+                print(f"  {c['name']:<20} {c['type']:<7} {c['filled']:>6}{extra}")
+            print()
+            print("\n".join(sheet.render_text(sheet.Table(t.headers, t.rows[:sheet.SAMPLE_ROWS], tr("前几行")))))
+            return 0
+        if args.action == "run":
+            plan = sheet.parse_plan(Path(args.text).read_text(encoding="utf-8-sig"))
+            res, who = sheet.run_plan(t, plan), None
+        else:
+            if not args.text:
+                raise OrchError(tr("要问什么？例如：orch sheet ask 表.xlsx \"每个部门花了多少\""))
+            samples = 0 if args.no_samples else sheet.SAMPLE_ROWS
+            if args.dry_run:
+                print(sheet.build_prompt(t, args.text, samples, redact.make(args.mask, not args.no_mask)))
+                return 0
+            eps = office.endpoints(_project(args), args.provider, args.model, args.sensitive or None)
+            masker = redact.make(args.mask, not args.no_mask)
+            print(tr("发给 {0}：列名和类型{1}；整张表不发出去，数字在本机计算", eps[0].label,
+                     tr("，加前 {0} 行样例", min(samples, len(t.rows))) if samples else ""))
+            ans = sheet.ask(t, args.text, eps, samples, masker=masker)
+            print(masker.summary())
+            plan, res, who = ans.plan, ans.result, ans
+    except (sheet.SheetError, OSError, json.JSONDecodeError) as e:
+        raise OrchError(str(e)) from None
+    print()
+    print("\n".join(sheet.render_text(res)))
+    if plan.get("note"):
+        print(tr("说明：{0}", plan["note"]))
+    files = sheet.save(Path(args.file), res, plan, Path(args.out) if args.out else None)
+    print()
+    print(tr("结果表：{0}", files["xlsx"]))
+    if "chart" in files:
+        print(tr("图表：{0}（用浏览器打开）", files["chart"]))
+    print(tr("计划：{0}（以后可以 orch sheet run 文件 计划.json 直接重算，不用模型）", files["plan"]))
+    if who is not None:
+        print(tr("模型：{0} {1}，token 输入 {2} / 输出 {3}", who.endpoint, who.model, who.tokens_in or "-", who.tokens_out or "-"))
+    return 0
+
+
+def cmd_doc(args: argparse.Namespace) -> int:
+    from . import doc, office, redact
+
+    try:
+        if args.action == "show":
+            if not args.target:
+                raise OrchError(tr("要看哪个文件？例如：orch doc show 总结.docx"))
+            text = doc.to_markdown(doc.read_any(Path(args.target)))
+            print(text)
+            print()
+            print(tr("约 {0} 字", doc.count(text)))
+            return 0
+        if args.action == "fill":
+            if not args.target or not args.request:
+                raise OrchError(tr("用法：orch doc fill 模板.docx \"要填什么\" [--from 材料]"))
+            tpl = Path(args.target)
+            fields = doc.template_fields(tpl)
+            print(tr("模板里的字段：{0}", ", ".join(fields) or "-"))
+            mats = [Path(m) for m in args.materials or []]
+            if args.dry_run:
+                print(doc.fill_messages(fields, args.request, [(m.name, doc.to_markdown(doc.read_any(m))) for m in mats],
+                                        redact.make(args.mask, not args.no_mask))[1]["content"])
+                return 0
+            eps = office.endpoints(_project(args), args.provider, args.model, args.sensitive or None)
+            masker = redact.make(args.mask, not args.no_mask)
+            print(tr("发给 {0}：字段名和你的要求{1}（模板的其他内容不发）", eps[0].label,
+                     tr("和 {0} 个材料文件", len(mats)) if mats else ""))
+            values, res = doc.fill(tpl, args.request, eps, mats, masker=masker)
+            print(masker.summary())
+            dest = Path(args.out) if args.out else doc.out_path([], tpl.parent, tpl.stem + tr("_填好"))
+            empty = doc.fill_docx(tpl, values, dest)
+            print()
+            for f, v in values.items():
+                print(f"  {f}: {v.splitlines()[0] if v else '-'}{' ...' if v.count(chr(10)) else ''}")
+            print()
+            print(tr("已保存：{0}", dest))
+            if empty:
+                print(tr("这些字段没填（材料里没有）：{0}，在 Word 里补上", ", ".join(empty)))
+            print(tr("模型：{0} {1}，token 输入 {2} / 输出 {3}", res.endpoint, res.model, res.tokens_in or "-", res.tokens_out or "-"))
+            return 0
+        if args.action == "draft":
+            if not args.target:
+                raise OrchError(tr("要写什么？例如：orch doc draft \"写一份国庆值班安排的通知\""))
+            mats = [Path(m) for m in args.materials or []]
+            style = args.style or "plain"
+            if args.dry_run:
+                msgs = doc.draft_messages(args.target, [(m.name, doc.to_markdown(doc.read_any(m))) for m in mats], style,
+                                          redact.make(args.mask, not args.no_mask))
+                print(msgs[1]["content"])
+                return 0
+            eps = office.endpoints(_project(args), args.provider, args.model, args.sensitive or None)
+            masker = redact.make(args.mask, not args.no_mask)
+            print(tr("发给 {0}：你的要求{1}", eps[0].label, tr("和 {0} 个材料文件", len(mats)) if mats else ""))
+            blocks, res = doc.draft(args.target, eps, mats, style, masker=masker)
+            print(masker.summary())
+            folder = Path(args.out).parent if args.out else (mats[0].parent if mats else Path.cwd())
+            dest = Path(args.out) if args.out else doc.out_path(blocks, folder)
+        else:
+            if not args.target:
+                raise OrchError(tr("要改哪个文件？例如：orch doc polish 总结.docx \"压缩到 800 字\""))
+            src = Path(args.target)
+            blocks = doc.read_any(src)
+            style = args.style or "plain"
+            if args.dry_run:
+                print(doc.polish_messages(doc.to_markdown(blocks), args.request or "", style,
+                                          redact.make(args.mask, not args.no_mask))[1]["content"])
+                return 0
+            eps = office.endpoints(_project(args), args.provider, args.model, args.sensitive or None)
+            masker = redact.make(args.mask, not args.no_mask)
+            before = doc.count(doc.to_markdown(blocks))
+            print(tr("发给 {0}：整篇文档（约 {1} 字）", eps[0].label, before))
+            blocks, res = doc.polish(blocks, args.request or "", eps, style, masker=masker)
+            print(masker.summary())
+            dest = Path(args.out) if args.out else doc.out_path(blocks, src.parent, src.stem + tr("_改"))
+        doc.write_docx(blocks, dest, style)
+    except (office.OfficeError, OSError) as e:
+        raise OrchError(str(e)) from None
+    print()
+    print(doc.to_markdown(blocks))
+    print()
+    print(tr("已保存：{0}（约 {1} 字）", dest, doc.count(doc.to_markdown(blocks))))
+    print(tr("模型：{0} {1}，token 输入 {2} / 输出 {3}", res.endpoint, res.model, res.tokens_in or "-", res.tokens_out or "-"))
+    return 0
+
+
+def cmd_office(args: argparse.Namespace) -> int:
+    from . import office, redact
+
+    if args.action == "sensitive":
+        if args.value not in ("on", "off"):
+            raise OrchError(tr("用法：orch office sensitive on|off"))
+        office.save_sensitive(args.value == "on")
+    on = office.sensitive_saved()
+    print(tr("敏感模式：{0}", tr("开（只用国内模型：DeepSeek、千问、豆包）") if on else tr("关")))
+    words = redact.saved_words()
+    print(tr("脱敏：默认打开（身份证、手机号、银行卡、座机、邮箱、标签后的姓名）；单次关闭用 --no-mask"))
+    print(tr("自己要隐藏的词：{0} 个，在 {1}（一行一个）", len(words), redact.words_path()))
+    return 0
+
+
 def cmd_merge(args: argparse.Namespace) -> int:
     orch = _open(args)
     from . import checkpoint
@@ -806,6 +957,12 @@ def cmd_probe(args: argparse.Namespace) -> int:
 
 # -- parser -------------------------------------------------------------------
 
+def _office_flags(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--mask", action="append", help=tr("另外要隐藏的词，逗号分隔，例如人名、单位名（可多次指定）"))
+    p.add_argument("--no-mask", action="store_true", help=tr("不脱敏（默认会隐藏身份证、手机号等）"))
+    p.add_argument("--sensitive", action="store_true", help=tr("敏感模式：只用国内模型（DeepSeek、千问、豆包）"))
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="orch", description="MAO multi-agent orchestrator")
     p.add_argument("-p", "--project", default=".", help=tr("项目目录（默认当前目录）"))
@@ -933,6 +1090,38 @@ def build_parser() -> argparse.ArgumentParser:
     cn.add_argument("--for", dest="purpose", choices=["coding", "review"], default="coding")
     cn.add_argument("--model", help=tr("model to use (coding: provider/model as opencode names it)"))
     cn.set_defaults(fn=cmd_connect)
+
+    sh = sub.add_parser("sheet", help=tr("问 Excel / CSV 表格：sheet show 文件 | ask 文件 \"问题\" | run 文件 计划.json"))
+    sh.add_argument("action", choices=["show", "ask", "run"])
+    sh.add_argument("file")
+    sh.add_argument("text", nargs="?", help=tr("问题（ask）或计划文件（run）"))
+    sh.add_argument("--sheet", help=tr("工作表名或序号（默认第一个）"))
+    sh.add_argument("--header", type=int, help=tr("标题在第几行（默认第一个非空行）"))
+    sh.add_argument("--provider", help="deepseek, qwen, openai, anthropic, gemini, doubao")
+    sh.add_argument("--model")
+    sh.add_argument("--no-samples", action="store_true", help=tr("只发列名，不发样例行"))
+    _office_flags(sh)
+    sh.add_argument("--dry-run", action="store_true", help=tr("只显示会发给模型的内容，不调用"))
+    sh.add_argument("--out", help=tr("结果放在哪个文件夹（默认 文件名_orch）"))
+    sh.set_defaults(fn=cmd_sheet)
+
+    dd = sub.add_parser("doc", help=tr("写和改 Word：doc draft \"要求\" | polish 文件 \"要求\" | fill 模板 \"要求\" | show 文件"))
+    dd.add_argument("action", choices=["draft", "polish", "fill", "show"])
+    dd.add_argument("target", nargs="?", help=tr("要求（draft）或文件（polish、fill、show）"))
+    dd.add_argument("request", nargs="?", help=tr("怎么改（polish，默认润色）；要填什么（fill）"))
+    dd.add_argument("--from", dest="materials", action="append", help=tr("参考材料（.docx / .txt / .md），可多次指定"))
+    dd.add_argument("--style", choices=["plain", "gongwen"], help=tr("版式：plain 普通（默认），gongwen 公文"))
+    dd.add_argument("--provider", help="deepseek, qwen, openai, anthropic, gemini, doubao")
+    dd.add_argument("--model")
+    dd.add_argument("--dry-run", action="store_true", help=tr("只显示会发给模型的内容，不调用"))
+    _office_flags(dd)
+    dd.add_argument("--out", help=tr("保存成哪个文件（默认用标题命名）"))
+    dd.set_defaults(fn=cmd_doc)
+
+    of = sub.add_parser("office", help=tr("办公设置：office 查看 | office sensitive on|off"))
+    of.add_argument("action", nargs="?", choices=["status", "sensitive"], default="status")
+    of.add_argument("value", nargs="?")
+    of.set_defaults(fn=cmd_office)
 
     mc = sub.add_parser("mcp", help=tr("MCP 服务（stdio）：在 Claude / ChatGPT 等聊天应用里查看和派发 orch 任务"))
     mc.add_argument("--project", dest="projects", action="append", help=tr("要管理的项目目录，可多次指定（默认 -p 的项目）"))

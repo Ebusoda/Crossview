@@ -16,6 +16,16 @@
 - 看每个模型花了多少钱、一次通过的比例（`orch report`），以及每次调用到底发了什么（`orch context`）。
 - 在一个面板上看所有 agent：正在做什么、今天和这周用了多少、订阅额度、最近成功率和最近一次出错；可以暂停、恢复某个 agent，或者把任务换给另一个（`orch agents`）。
 - 看到你在这台电脑上自己开的 Claude Code、Codex 会话，和 orch 派的活放在一起：哪个项目、什么模型、上次什么时候用、现在是不是在用、用了多少 token（`orch sessions`）。只从会话记录里读时间、文件夹和 token 数，不打开对话内容和登录文件。
+- 用大白话问 Excel、CSV 表格（`orch sheet ask 支出.xlsx "这个季度哪个部门花得最多"`）。模型只看到列名和前 5 行样例
+  （加 `--no-samples` 连样例也不发），数字在你自己的电脑上对整张表计算。会给出答案、一个结果 Excel 和一张图。
+- 起草或润色 Word（`orch doc draft "写一份国庆值班安排的通知" --from 记录.docx`，`orch doc polish 总结.docx "压缩到 800 字"`）。
+  生成真正的 .docx；加 `--style gongwen` 按公文版式排版（仿宋三号、小标宋标题、每行 28 磅）。起草只发你的要求和指定的材料，润色会发整篇文档。
+- 填你自己的 Word 模板：把要填的地方写成 `{{标题}}`、`{{日期}}`，然后 `orch doc fill 模板.docx "十月月报：……"`。
+  只发字段名和你的要求，模板的版式不变。
+- 发出去之前自动脱敏：身份证号、手机号、银行卡号、座机、邮箱、「联系人：」这类标签后面的姓名，以及你用 `--mask`
+  或 `mask_words.txt` 指定的词，都换成占位符，结果回来后再换回原文。`orch office sensitive on`（或 `--sensitive`）
+  只用国内模型（DeepSeek、千问、豆包）。脱敏只能识别常见格式，不能保证找全：工作文件发给外部模型前先确认单位规定，
+  涉密文件一律不要用。
 - 用一个自动生成的文件把整个项目交给新的聊天会话（`orch handoff export`）。
 - 先用假模型离线把这些都试一遍（`orch demo`）。
 
@@ -112,6 +122,9 @@ python -m orch -p 你的仓库 report
 | `agents`、`agents pause / resume 池名`、`agents swap 任务 池名` | 总控面板：每个 agent 的状态和用量；暂停、恢复、换人 |
 | `sessions [--days N] [--all]` | 本机的 Claude Code / Codex 会话，包括你手动开的（只读） |
 | `report`、`route suggest / apply` | 各类任务在各个池上的成本和质量；路由建议 |
+| `sheet show / ask / run 文件` | 问 Excel / CSV 表格；`run` 不用模型，按保存的计划重算 |
+| `doc draft / polish / fill / show` | 起草、修改或按模板填写 Word（`--from` 材料，`--style plain / gongwen` 版式） |
+| `office [sensitive on / off]` | 办公设置：敏感模式、自己要隐藏的词 |
 | `handoff export` | 生成项目交接文件，给新的聊天会话读 |
 | `lang [zh/en/ja]` | 切换 orch 提示的语言 |
 | `key set / list / remove 服务商`、`connect [服务商]` | 用你自己的模型账号 |
@@ -126,6 +139,9 @@ python -m orch -p 你的仓库 report
 
 ## 更新记录
 
+- **0.3.6**：办公文档。`orch sheet` 用大白话问 Excel、CSV 表格（模型只看列名和几行样例，数字在你电脑上算），
+  结果存成 Excel 并画图。`orch doc` 起草、润色 Word，按模板填写，可用公文版式。发出去前自动脱敏；
+  敏感模式只用国内模型。
 - **0.3.5**：`orch agents` 总控面板：每个 agent 正在做什么、今天和这周的用量、订阅额度、最近成功率和最近一次出错，
   可以暂停、恢复、换人。`orch sessions` 列出本机的 Claude Code、Codex 会话，包括你自己开的（只读时间、文件夹和 token 数）。
   orch 的提示支持中文、英文、日文（`orch lang`、`--lang`，默认跟随系统语言）。
