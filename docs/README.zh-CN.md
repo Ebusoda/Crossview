@@ -27,7 +27,15 @@
   只用国内模型（DeepSeek、千问、豆包）。脱敏只能识别常见格式，不能保证找全：工作文件发给外部模型前先确认单位规定，
   涉密文件一律不要用。
 - 老格式也能用：.doc、.wps、.rtf、.xls、.et 文件会先用电脑上装的 Word / Excel、WPS 或 LibreOffice 转换（原文件不动）。
-- 在聊天应用里也能用办公功能：MCP 服务（`orch mcp`）提供 `office_sheet_ask` 和 `office_doc`。
+- 资金追踪（`orch trace 流水文件夹/`）：放进来的几个人之间的每笔转账，都到对方流水里核对有没有到账（同样金额、
+  `--days` 天以内、对方记录指回转出人）；列出取现和转给不认识的账户的记录；把每个外部账户汇总起来，带上流水里写的
+  开户行和按卡号推测的银行。结果是一个 Excel 和一张流向图。全部在本机计算，不发给任何模型。
+  对方是谁、在哪个银行，只能看流水里写了什么。
+- 在一堆文件里找信息（`orch find 文件夹 张三 6222021234567890123`，`--type 身份证 / 手机 / 银行卡 / 邮箱`）：
+  Excel / WPS / CSV 的每个工作表、每个格子，Word 的段落和表格，文本文件，装了 pypdf 或 pdftotext 时还有 PDF。
+  号码中间有空格、横杠也能找到。只在本机查，找到的地方存成一个 Excel。
+- 在聊天应用里也能用办公功能：MCP 服务（`orch mcp`）提供 `office_sheet_ask`、`office_doc`、`office_trace`
+  和 `office_find`（后两个默认只返回数量和文件位置，要细节才返回内容）。
   `orch office` 和 `orch report` 会显示办公功能用了多少次、多少 token。
 - 用一个自动生成的文件把整个项目交给新的聊天会话（`orch handoff export`）。
 - 先用假模型离线把这些都试一遍（`orch demo`）。
@@ -115,6 +123,23 @@ python -m orch -p 你的仓库 report
 
 **语言**：orch 的提示有中文、英文、日文三种，默认跟随系统语言。用 `python -m orch lang zh`（或 `en`、`ja`）切换；只想这一次换，就加 `--lang en`。
 
+## 家用网页版
+
+双击 `run_web.cmd`（或 `python -m maoweb`）在这台电脑上打开网页版：http://127.0.0.1:8848/ 。第一次打开时创建管理员账号，
+管理员再在设置里添加家人、填写 API key（用 Windows 自带的加密保存，填完不再显示）。所有东西都留在这台电脑上：
+账号、对话、文件和 key 都在 `run_web.cmd` 旁边的 `.maoweb` 文件夹里。
+
+- **聊天**：自己选模型（DeepSeek、豆包、千问、GPT、Claude、Gemini，用 API key）。管理员还可以用本机 Claude Code 的登录聊天
+  （「Claude（我的订阅）」）：走你的 Claude 订阅，关掉所有工具，别的账号看不到。
+- **分派给 Agent**：聊完以后一键交给 orch，AI 拆成任务，派给登记项目里的 agent，验收、合并；进度、暂停、继续、合并都显示在聊天下面。
+- **画图**（文字生成或修改照片）和 **视频**（豆包 Seedream / Seedance，`ARK_API_KEY`）。
+- **文档**：问表格、写 / 改 / 按模板填 Word（带常用模板）、资金追踪、在一堆文件里找信息。个人信息和命令行一样先脱敏；
+  敏感模式只用国内模型。
+- **写程序**：管理员和被允许的家人，给设置里登记的 orch 项目派任务。
+- **Agent**（管理员）：控制面板，以及自己打开的 Claude Code / Codex 会话。
+- 界面中文或英文，手机上也能用。`run_web.cmd` 同时在 Tailscale 地址上监听（`--remote`），出门在外用自己的手机也能打开；
+  只放行这台电脑和你自己的 Tailscale 设备（加 `--lan` 还放行家里的局域网）。
+
 ## 常用命令
 
 | 命令 | 用途 |
@@ -130,6 +155,8 @@ python -m orch -p 你的仓库 report
 | `report`、`route suggest / apply` | 各类任务在各个池上的成本和质量；路由建议 |
 | `sheet show / ask / run 文件` | 问 Excel / CSV 表格；`run` 不用模型，按保存的计划重算 |
 | `doc draft / polish / fill / show` | 起草、修改或按模板填写 Word（`--from` 材料，`--style plain / gongwen` 版式） |
+| `trace 流水文件或文件夹 [--days N] [--known 名单] [--col 角色=列名]` | 资金追踪，只在本机计算 |
+| `find 文件夹 词…… [--type 身份证/手机/银行卡/邮箱] [--all]` | 在一堆文件里找信息，只在本机查 |
 | `office [sensitive on / off]` | 办公设置：敏感模式、自己要隐藏的词 |
 | `handoff export` | 生成项目交接文件，给新的聊天会话读 |
 | `lang [zh/en/ja]` | 切换 orch 提示的语言 |
@@ -145,6 +172,8 @@ python -m orch -p 你的仓库 report
 
 ## 更新记录
 
+- **0.5.0**：网页版公开（聊天、分派给 Agent、画图、视频、文档、写程序、Agent 面板，中文或英文）。`orch trace` 资金追踪、
+  `orch find` 在一堆文件里找信息，都只在本机计算；MCP 服务提供 `office_trace` 和 `office_find`。
 - **0.4.0**：老格式的 .doc、.xls、.wps 能通过 Word、Excel、WPS 或 LibreOffice 打开；MCP 服务加了办公工具（`office_sheet_ask`、`office_doc`）；办公功能的调用次数和 token 会记下来，`orch office` 和 `orch report` 里能看到（只记数量，不记内容）。
 - **0.3.9**：`orch init` 生成的配置文件，语言是中文时注释是中文，其他语言时是英文。
 - **0.3.8**：Gemini CLI 能在每个任务新建的 worktree 里运行（`--skip-trust`）；说明里写清楚它要用 API key 或付费方案，

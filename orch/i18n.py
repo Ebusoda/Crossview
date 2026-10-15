@@ -19,11 +19,14 @@ import json
 import locale
 import os
 import sys
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 LANGS = ("zh", "en", "ja")
 NAMES = {"zh": "中文", "en": "English", "ja": "日本語"}
 _override: str | None = None
+_thread = threading.local()          # a language for one thread only (the web page's background jobs)
 
 
 def settings_path() -> Path:
@@ -84,7 +87,18 @@ def save(lang: str) -> None:
 
 
 def current() -> str:
-    return _override or _norm(os.environ.get("MAO_LANG")) or saved() or _system()
+    return getattr(_thread, "lang", None) or _override or _norm(os.environ.get("MAO_LANG")) or saved() or _system()
+
+
+@contextmanager
+def using(lang: str | None):
+    """Messages in `lang` inside this block, in this thread only (other threads keep theirs)."""
+    old = getattr(_thread, "lang", None)
+    _thread.lang = _norm(lang) if lang else None
+    try:
+        yield
+    finally:
+        _thread.lang = old
 
 
 def set_lang(lang: str | None) -> None:

@@ -666,6 +666,65 @@ def cmd_sheet(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_trace(args: argparse.Namespace) -> int:
+    from . import trace
+
+    try:
+        overrides = trace.parse_overrides(args.col)
+        if args.columns:
+            sheets, notes = trace.read_statements([Path(p) for p in args.files], overrides)
+            rep = trace.analyse(sheets, notes) if sheets else None
+            if rep is not None:
+                print("\n".join(sheet_lines(rep.columns)))
+            for n in notes:
+                print(n)
+            return 0
+        rep = trace.run([Path(p) for p in args.files], args.days, args.known, overrides, args.sender or "",
+                        args.receiver or "")
+        print(tr("全部在本机计算，没有发给任何模型"))
+        for n in rep.notes:
+            print(n)
+        print("\n".join(trace.summary_lines(rep)))
+        for t in (rep.transfers, rep.unknown):
+            if t.rows:
+                print()
+                print("\n".join(sheet_lines(t)))
+        first = Path(args.files[0])
+        out = Path(args.out) if args.out else (first if first.is_dir() else first.parent)
+        files = trace.save(rep, out)
+    except (trace.TraceError, OSError) as e:
+        raise OrchError(str(e)) from None
+    print()
+    print(tr("结果表：{0}", files["xlsx"]))
+    if "chart" in files:
+        print(tr("流向图：{0}（用浏览器打开）", files["chart"]))
+    print(tr("对方是谁、在哪个银行，只能看流水里写了什么；按卡号推测的银行仅供参考"))
+    return 0
+
+
+def sheet_lines(t) -> list[str]:
+    from . import sheet
+
+    return sheet.render_text(t)
+
+
+def cmd_find(args: argparse.Namespace) -> int:
+    from . import find
+
+    try:
+        ns = find.needles(args.words, args.type or [])
+        res = find.search([Path(args.folder)], ns, args.all)
+        print("\n".join(find.summary_lines(res)))
+        root = Path(args.folder) if Path(args.folder).is_dir() else Path(args.folder).parent
+        if res.hits or res.skipped:
+            path = find.save(res, Path(args.out) if args.out else root, root)
+            print()
+            print(tr("结果表：{0}", path))
+    except (find.FindError, OSError) as e:
+        raise OrchError(str(e)) from None
+    return 0
+
+
 def cmd_doc(args: argparse.Namespace) -> int:
     from . import doc, office, redact
 
@@ -1125,6 +1184,25 @@ def build_parser() -> argparse.ArgumentParser:
     _office_flags(dd)
     dd.add_argument("--out", help=tr("保存成哪个文件（默认用标题命名）"))
     dd.set_defaults(fn=cmd_doc)
+
+    tc = sub.add_parser("trace", help=tr("资金追踪：trace 流水文件或文件夹……（只在本机计算）"))
+    tc.add_argument("files", nargs="+", help=tr("银行流水（Excel、WPS、CSV）或放流水的文件夹"))
+    tc.add_argument("--days", type=int, default=3, help=tr("转账到账最多隔几天（默认 3）"))
+    tc.add_argument("--known", action="append", help=tr("已知的人或账号，不算未知去向：名单文件，或逗号分隔"))
+    tc.add_argument("--col", action="append", help=tr("指定列：角色=列名，例如 对方户名=收款人名称（可多次指定）"))
+    tc.add_argument("--from", dest="sender", help=tr("只核对这个人转出的"))
+    tc.add_argument("--to", dest="receiver", help=tr("只核对转给这个人的"))
+    tc.add_argument("--columns", action="store_true", help=tr("只显示每份流水认出了哪些列"))
+    tc.add_argument("--out", help=tr("结果放在哪个文件夹（默认和流水放一起）"))
+    tc.set_defaults(fn=cmd_trace)
+
+    fd = sub.add_parser("find", help=tr("在一堆文件里找信息：find 文件夹 词……（只在本机查）"))
+    fd.add_argument("folder", help=tr("要查的文件夹或文件"))
+    fd.add_argument("words", nargs="*", help=tr("要找的词、名字或号码"))
+    fd.add_argument("--type", action="append", help=tr("按类型找：身份证、手机、银行卡、邮箱（可多次指定）"))
+    fd.add_argument("--all", action="store_true", help=tr("只要所有词都出现的文件"))
+    fd.add_argument("--out", help=tr("结果表放在哪个文件夹（默认就是要查的文件夹）"))
+    fd.set_defaults(fn=cmd_find)
 
     of = sub.add_parser("office", help=tr("办公设置：office 查看 | office sensitive on|off"))
     of.add_argument("action", nargs="?", choices=["status", "sensitive"], default="status")

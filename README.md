@@ -43,7 +43,17 @@ Python 3.11+, standard library only. Built and used on Windows. A full guide in 
   before sending work documents to an outside model, and never use it for classified material.
 - Old formats work too: .doc, .wps, .rtf, .xls and .et files are converted first by Word / Excel, WPS or
   LibreOffice if one is installed (the original is never changed).
-- The same office work from a chat app: the MCP server (`orch mcp`) offers `office_sheet_ask` and `office_doc`.
+- Follow money through bank statements (`orch trace statements/`): every transfer between the people whose
+  statements you load is checked against the other side (did it arrive, same amount, within `--days` days);
+  cash withdrawals and money sent to unknown accounts are listed; every outside account is summed up with the
+  bank written in the statements and the bank its card number suggests. You get an .xlsx and a flow chart.
+  Nothing is sent to any model. Who owns an account can only come from what the statements say.
+- Find a name, number or word in a pile of files (`orch find folder/ "Zhang San" 6222021234567890123`,
+  `--type id / phone / card / email`): every sheet and cell of Excel / WPS / CSV, Word paragraphs and tables,
+  text files, and PDF when pypdf or pdftotext is installed. Numbers are found even when written with spaces.
+  Searched on your computer only; the hits go to an .xlsx.
+- The same office work from a chat app: the MCP server (`orch mcp`) offers `office_sheet_ask`, `office_doc`,
+  `office_trace` and `office_find` (the last two return only counts and file paths unless you ask for details).
   `orch office` and `orch report` show how many calls and tokens the office work used.
 - Hand the whole project to a new chat session with one generated file (`orch handoff export`).
 - Try all of it offline with fake models first (`orch demo`).
@@ -142,6 +152,28 @@ into yours when you are happy with it.
 **Language.** orch speaks Chinese, English or Japanese. It follows your system language; change it with
 `python -m orch lang en` (or `zh`, `ja`), or for one command with `--lang en`.
 
+## Web app for the family
+
+`run_web.cmd` (or `python -m maoweb`) starts a small web app on this PC at http://127.0.0.1:8848/. The first visit
+creates the admin account; the admin then adds family members and enters API keys in Settings (keys are encrypted
+with Windows DPAPI and never shown again). Everything stays on this PC: accounts, chats, files and keys are kept in
+the `.maoweb` folder next to `run_web.cmd`.
+
+- **Chat** with the model you pick (DeepSeek, Doubao, Qwen, GPT, Claude, Gemini through API keys). The admin can
+  also chat through the local Claude Code sign-in ("Claude (my subscription)"): it uses your Claude plan, runs with
+  every tool off, and is never offered to other accounts.
+- **Assign to agents** from a chat: when a discussion is done, orch plans it into tasks, gives them to the agents
+  of a registered project, checks and merges them; progress, pause, resume and merge show under the chat.
+- **Pictures** from a description or by editing a photo, and **video** (Doubao Seedream / Seedance, `ARK_API_KEY`).
+- **Documents**: ask about a table, write, polish or fill in Word (with everyday templates), follow money through
+  bank statements and find information in a pile of files. Personal details are masked as on the command line;
+  sensitive mode uses only models based in China.
+- **Coding** for the admin and the members the admin allows: tasks for orch projects registered in Settings.
+- **Agents** (admin): the control panel and the hand-opened Claude Code / Codex sessions.
+- Chinese or English interface; works on a phone. `run_web.cmd` listens on the Tailscale address too
+  (`--remote`), so your own phone can open it when you are out; only this PC and your Tailscale devices are
+  let in (`--lan` also allows the home network).
+
 ## Main commands
 
 | Command | Purpose |
@@ -157,6 +189,8 @@ into yours when you are happy with it.
 | `report`, `route suggest / apply` | cost and quality per task type and pool; routing suggestions |
 | `sheet show / ask / run FILE` | questions about an Excel / CSV table; `run` repeats a saved plan without a model |
 | `doc draft / polish / fill / show` | write, edit or fill in a Word document (`--from`, `--style plain / gongwen`) |
+| `trace FILES-OR-FOLDERS [--days N] [--known LIST] [--col ROLE=HEADER]` | follow money through bank statements, locally |
+| `find FOLDER WORDS... [--type id/phone/card/email] [--all]` | find information in a pile of files, locally |
 | `office [sensitive on / off]` | office settings: sensitive mode, your word list for masking |
 | `handoff export` | a project checkpoint for a new chat session |
 | `key set / list / remove PROVIDER`, `connect [PROVIDER]` | your own model accounts |
@@ -186,6 +220,9 @@ Tools: `orch_list_projects`, `orch_list_tasks`, `orch_task`, `orch_add_task`, `o
 
 ## Changelog
 
+- **0.5.0**: the web app is public (chat, assign to agents, pictures, video, documents, coding, agents panel;
+  Chinese or English). `orch trace` follows money through bank statements and `orch find` searches a pile of
+  files, both on your computer only; the MCP server offers them as `office_trace` and `office_find`.
 - **0.4.0**: old .doc / .xls / .wps files open through Word, Excel, WPS or LibreOffice; office tools in the MCP
   server (`office_sheet_ask`, `office_doc`); office calls and tokens are recorded and shown by `orch office` and
   `orch report` (counts only, never content).

@@ -600,18 +600,41 @@ def _ref(col: int, row: int) -> str:
 
 def write_xlsx(t: Table, path: Path) -> Path:
     """A plain .xlsx that Excel, WPS and LibreOffice open (bold header, numbers stay numbers)."""
-    rows_xml = []
-    for r, row in enumerate([t.headers] + t.rows, start=1):
-        cells = "".join(_cell_xml(_ref(c, r), v, 1 if r == 1 else 0) for c, v in enumerate(row))
-        rows_xml.append(f'<row r="{r}">{cells}</row>')
-    sheet_name = escape(re.sub(r"[\\/?*\[\]:]", " ", t.name or "Sheet1")[:31].strip() or "Sheet1", {'"': "&quot;"})
+    return write_book([t], path)
+
+
+def _sheet_name(name: str, used: set[str]) -> str:
+    base = re.sub(r"[\\/?*\[\]:]", " ", name or "Sheet1")[:31].strip() or "Sheet1"
+    out, n = base, 2
+    while out.lower() in used:
+        out, n = f"{base[:28]}_{n}", n + 1
+    used.add(out.lower())
+    return out
+
+
+def write_book(tables: list[Table], path: Path) -> Path:
+    """One .xlsx with a sheet per table, in order (bold header row, numbers stay numbers)."""
+    tables = list(tables) or [Table([], [], "Sheet1")]
+    used: set[str] = set()
+    names = [escape(_sheet_name(t.name, used), {'"': "&quot;"}) for t in tables]
+    sheets_xml = []
+    for t in tables:
+        rows_xml = []
+        for r, row in enumerate([t.headers] + t.rows, start=1):
+            cells = "".join(_cell_xml(_ref(c, r), v, 1 if r == 1 else 0) for c, v in enumerate(row))
+            rows_xml.append(f'<row r="{r}">{cells}</row>')
+        sheets_xml.append('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                          '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                          f'<sheetData>{"".join(rows_xml)}</sheetData></worksheet>')
+    n = len(tables)
     files = {
         "[Content_Types].xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
         '<Default Extension="xml" ContentType="application/xml"/>'
         '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        + "".join(f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                  for i in range(1, n + 1)) +
         '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
         '</Types>',
         "_rels/.rels": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -620,12 +643,14 @@ def write_xlsx(t: Table, path: Path) -> Path:
         '</Relationships>',
         "xl/workbook.xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        f'<sheets><sheet name="{sheet_name}" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+        + "".join(f'<sheet name="{names[i - 1]}" sheetId="{i}" r:id="rId{i}"/>' for i in range(1, n + 1)) +
+        '</sheets></workbook>',
         "xl/_rels/workbook.xml.rels": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        + "".join(f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i}.xml"/>'
+                  for i in range(1, n + 1)) +
+        f'<Relationship Id="rId{n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
         '</Relationships>',
         "xl/styles.xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -636,10 +661,9 @@ def write_xlsx(t: Table, path: Path) -> Path:
         '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
         '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
         '</styleSheet>',
-        "xl/worksheets/sheet1.xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        f'<sheetData>{"".join(rows_xml)}</sheetData></worksheet>',
     }
+    for i, xml in enumerate(sheets_xml, start=1):
+        files[f"xl/worksheets/sheet{i}.xml"] = xml
     path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in files.items():

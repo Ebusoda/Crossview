@@ -230,6 +230,45 @@ class OrchTools:
                 "tokens": {"in": res.tokens_in, "out": res.tokens_out}}
 
 
+    def trace(self, files: list[str], days: int = 3, known: str = "", columns: str = "", sender: str = "",
+              receiver: str = "", details: bool = False, out: str = "") -> dict:
+        from . import trace as tc
+
+        if not files:
+            raise ValueError("files is empty")
+        rep = tc.run([Path(f) for f in files], int(days), [known] if known else None, tc.parse_overrides([columns]),
+                     sender, receiver)
+        first = Path(files[0])
+        saved = tc.save(rep, Path(out) if out else (first if first.is_dir() else first.parent))
+        body: dict[str, Any] = {"summary": tc.summary_lines(rep), "notes": rep.notes, "counts": rep.counts,
+                                "files": {k: str(v) for k, v in saved.items()},
+                                "columns": [dict(zip(rep.columns.headers, r)) for r in rep.columns.rows]}
+        if details:
+            for key, t in (("transfers", rep.transfers), ("unknown", rep.unknown),
+                           ("counterparties", rep.counterparties), ("flows", rep.flows)):
+                body[key] = [dict(zip(t.headers, r)) for r in t.rows[:200]]
+        return body
+
+    def find(self, folder: str, words: list[str] | None = None, types: list[str] | None = None,
+             all_words: bool = False, details: bool = False, out: str = "") -> dict:
+        from . import find as fd
+
+        res = fd.search([Path(folder)], fd.needles(words or [], types or []), all_words)
+        root = Path(folder) if Path(folder).is_dir() else Path(folder).parent
+        saved = fd.save(res, Path(out) if out else root, root) if (res.hits or res.skipped) else None
+        per_file: dict[str, list[str]] = {}
+        for h in res.hits:
+            per_file.setdefault(str(h.file), []).append(h.where)
+        body: dict[str, Any] = {"searched": res.searched, "files_with_hits": res.files_with_hits,
+                                "hits": len(res.hits), "where": per_file,
+                                "not_read": {str(f): why for f, why in res.skipped},
+                                "saved": str(saved) if saved else ""}
+        if details:
+            body["text"] = [{"file": str(h.file), "where": h.where, "found": h.found, "text": h.text}
+                            for h in res.hits[:200]]
+        return body
+
+
 def _detached() -> dict:
     if sys.platform == "win32":
         return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
@@ -312,6 +351,33 @@ TOOLS: list[dict[str, Any]] = [
          "sensitive": {"type": "boolean"}, "mask": {"type": "string"},
          "out": {"type": "string", "description": "where to save (optional)"}},
          "required": ["action"]}},
+    {"name": "office_trace", "description": "Follow money through bank statements on this computer (Excel, WPS, CSV; "
+     "files or folders): checks whether each transfer between the statement holders arrived on the other side, lists "
+     "cash withdrawals and money sent to unknown accounts, and sums up every outside account with the bank written in "
+     "the statements (plus the bank its card number suggests). Computed locally without any model; saves an .xlsx and a "
+     "flow chart .svg. By default only counts and file paths come back; details=true also returns the rows (they then "
+     "reach this chat). It cannot say who owns an account beyond what the statements say.",
+     "inputSchema": {"type": "object", "properties": {
+         "files": {"type": "array", "items": {"type": "string"}, "description": "statement files or folders (full paths)"},
+         "days": {"type": "number", "description": "how many days a transfer may take to arrive (default 3)"},
+         "known": {"type": "string", "description": "people or accounts that are not unknown: comma-separated, or a list file"},
+         "columns": {"type": "string", "description": "fix columns that were missed: role=header, comma-separated, e.g. 对方户名=收款人名称"},
+         "sender": {"type": "string", "description": "only transfers sent by this holder"},
+         "receiver": {"type": "string", "description": "only transfers sent to this holder"},
+         "details": {"type": "boolean", "description": "also return the result rows (default false)"},
+         "out": {"type": "string", "description": "folder for the results (default: next to the statements)"}},
+         "required": ["files"]}},
+    {"name": "office_find", "description": "Find words, names or numbers in a folder of files on this computer (Excel, "
+     "WPS, CSV, Word, text, PDF when readable); numbers are found even when written with spaces or dashes. types finds "
+     "every ID card, mobile, bank card or e-mail. Searched locally; saves an .xlsx of all hits. By default only where the "
+     "hits are comes back; details=true also returns the text around each hit.",
+     "inputSchema": {"type": "object", "properties": {
+         "folder": {"type": "string", "description": "folder or file (full path)"},
+         "words": {"type": "array", "items": {"type": "string"}},
+         "types": {"type": "array", "items": {"type": "string", "enum": ["身份证", "手机", "银行卡", "邮箱"]}},
+         "all_words": {"type": "boolean", "description": "only files that contain every word"},
+         "details": {"type": "boolean"}, "out": {"type": "string"}},
+         "required": ["folder"]}},
     {"name": "orch_retry", "description": "Queue a blocked, failed or cancelled task again.",
      "inputSchema": {"type": "object", "properties": {**_P, "task_id": {"type": "string"}},
                      "required": ["project", "task_id"]}},
@@ -345,6 +411,11 @@ class Server:
             "orch_cancel": lambda a: tools.cancel(a["project"], a["task_id"]),
             "office_sheet_ask": lambda a: tools.sheet_ask(a["file"], a["question"], a.get("sheet", ""),
                                                           a.get("sensitive", False), a.get("mask", "")),
+            "office_trace": lambda a: tools.trace(a["files"], a.get("days", 3), a.get("known", ""), a.get("columns", ""),
+                                                  a.get("sender", ""), a.get("receiver", ""), a.get("details", False),
+                                                  a.get("out", "")),
+            "office_find": lambda a: tools.find(a["folder"], a.get("words"), a.get("types"), a.get("all_words", False),
+                                                a.get("details", False), a.get("out", "")),
             "office_doc": lambda a: tools.doc(a["action"], a.get("request", ""), a.get("file", ""), a.get("materials"),
                                               a.get("style", "plain"), a.get("sensitive", False), a.get("mask", ""),
                                               a.get("out", "")),

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b2017" media="(prefers-color-scheme: dark)">
+<title>MAO</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%238baf56'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M11 21.5L16 12.5M21 21.5L16 12.5M11.5 23h9'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Ccircle cx='16' cy='11' r='3'/%3E%3Ccircle cx='9.5' cy='23' r='3'/%3E%3Ccircle cx='22.5' cy='23' r='3'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MAO">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app" class="app" hidden>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand"><span class="mark" aria-hidden="true"></span><span>MAO</span></div>
+      <button class="icon-btn only-mobile" id="close-sidebar" aria-label="收起">
+        <svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      </button>
+    </div>
+    <nav class="views-nav" id="views-nav" aria-label="功能">
+      <button data-view="chat"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v5a2.5 2.5 0 0 1-2.5 2.5H9l-3.5 3v-3A2.5 2.5 0 0 1 4 10.5z"/></svg>聊天</button>
+      <button data-view="image"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M3.5 14l4-4 3 3 2-2 4 4"/></svg>画图</button>
+      <button data-view="video"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="5" width="10" height="10" rx="2.5"/><path d="M13 9l4-2.5v7L13 11"/></svg>视频</button>
+      <button data-view="docs"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3h5.5L15 6.5V16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M11 3v4h4M8 11h4M8 14h4"/></svg>文档</button>
+      <button data-view="code" id="nav-code"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 6l-4 4 4 4M13 6l4 4-4 4M11 4.5l-2 11"/></svg>写程序</button>
+      <button data-view="agents" id="nav-agents"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6" r="2.4"/><circle cx="5" cy="14" r="2.4"/><circle cx="15" cy="14" r="2.4"/><path d="M8.8 8.1L6.2 12M11.2 8.1l2.6 3.9M7.4 14h5.2"/></svg>Agent</button>
+    </nav>
+    <div class="chat-side" id="chat-side">
+      <button class="new-chat" id="new-chat">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>新对话
+      </button>
+      <div class="section-label">最近</div>
+      <nav class="conv-list" id="conv-list" aria-label="对话列表"></nav>
+    </div>
+    <div class="side-fill" id="side-fill"></div>
+    <div class="sidebar-bottom">
+      <button class="user-chip" id="user-chip">
+        <span class="avatar" id="avatar" data-no-tr></span>
+        <span class="user-name" id="user-name" data-no-tr></span>
+        <svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+      </button>
+      <div class="menu" id="user-menu" hidden>
+        <button data-act="settings" id="menu-settings">设置</button>
+        <button data-act="password">修改密码</button>
+        <button data-act="lang" data-no-tr id="menu-lang"></button>
+        <button data-act="logout">退出登录</button>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="open-sidebar" aria-label="菜单">
+        <svg viewBox="0 0 20 20"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+      <div class="conv-title" id="conv-title"></div>
+      <div class="spacer"></div>
+    </header>
+
+    <!-- chat -->
+    <div class="view" id="view-chat">
+      <section class="thread" id="thread" aria-live="polite">
+        <div class="welcome" id="welcome">
+          <h1 class="greeting"><span class="seal" aria-hidden="true"><span class="mark"></span></span><span class="tagline">MAO · 全家的 AI 助手</span><span id="greeting-text"></span></h1>
+        </div>
+        <div class="messages" id="messages"></div>
+        <div class="dispatch-jobs" id="dispatch-jobs" aria-live="polite"></div>
+      </section>
+
+      <form class="composer" id="composer" autocomplete="off">
+        <div class="composer-box">
+          <textarea id="input" rows="1" placeholder="有什么可以帮你？" aria-label="输入消息"></textarea>
+          <div class="composer-row">
+            <div class="model-picker">
+              <button type="button" class="model-btn" id="model-btn" aria-haspopup="listbox">
+                <span id="model-label">选择模型</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+              </button>
+              <div class="menu model-menu" id="model-menu" role="listbox" hidden></div>
+            </div>
+            <button type="button" class="ghost dispatch-open" id="dispatch-open" hidden>分派给 Agent</button>
+            <button type="submit" class="send" id="send" aria-label="发送" disabled>
+              <svg viewBox="0 0 20 20"><path d="M10 16V4M5 9l5-5 5 5"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="hint" id="hint"></p>
+        <div class="starters" id="starters">
+          <button type="button" data-fill="帮我写一段给家人的生日祝福，温暖一点，不要太长。">写生日祝福</button>
+          <button type="button" data-fill="帮我把下面这段话翻译成日语：&#10;">翻译成日语</button>
+          <button type="button" data-fill="红烧肉怎么做？请一步一步说，写清楚用量。">这道菜怎么做</button>
+          <button type="button" data-go="image">画一张图</button>
+          <button type="button" data-go="video">做一段视频</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- pictures -->
+    <div class="view page" id="view-image" hidden>
+      <div class="page-inner">
+        <div class="page-head">
+          <h1>画图</h1>
+          <p>写下想要的画面，AI 帮你画出来；也可以上传一张照片，告诉它想怎么改。</p>
+        </div>
+        <div class="notice" id="image-notice" hidden></div>
+        <form class="create-card" id="image-form" autocomplete="off">
+          <div class="source-pick" id="image-source" hidden>
+            <img alt="">
+            <div class="source-text"><strong>修改这张照片</strong><span>写下想怎么改，例如「背景换成海边」「变成水彩画」</span></div>
+            <button type="button" class="icon-btn" data-clear aria-label="不修改照片了"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+          </div>
+          <textarea name="prompt" rows="3" placeholder="例如：水墨风格的江南小镇，清晨，有薄雾" aria-label="想要的画面"></textarea>
+          <div class="create-row">
+            <label class="pill"><input type="file" accept="image/*" hidden data-file>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h1.8l1.2-2h4l1.2 2H15a1.5 1.5 0 0 1 1.5 1.5V15A1.5 1.5 0 0 1 15 16.5H5A1.5 1.5 0 0 1 3.5 15z"/><circle cx="10" cy="11" r="2.8"/></svg>
+              <span>上传照片</span></label>
+            <select class="pill" name="size" aria-label="尺寸"></select>
+            <select class="pill" name="model" aria-label="画图模型"></select>
+            <span class="spacer"></span>
+            <button class="primary go" type="submit">开始画</button>
+          </div>
+        </form>
+        <div class="list-head"><h2>我的作品</h2></div>
+        <div class="gallery" id="image-gallery"></div>
+      </div>
+    </div>
+
+    <!-- video -->
+    <div class="view page" id="view-video" hidden>
+      <div class="page-inner">
+        <div class="page-head">
+          <h1>视频</h1>
+          <p>写下想要的视频内容，AI 做成一段 5 或 10 秒的短片；也可以给一张图作为开头画面。</p>
+        </div>
+        <div class="notice" id="video-notice" hidden></div>
+        <form class="create-card" id="video-form" autocomplete="off">
+          <div class="source-pick" id="video-source" hidden>
+            <img alt="">
+            <div class="source-text"><strong>用这张图作为开头画面</strong><span>再写下画面接下来怎么动</span></div>
+            <button type="button" class="icon-btn" data-clear aria-label="不用这张图了"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+          </div>
+          <textarea name="prompt" rows="3" placeholder="例如：海浪慢慢拍打礁石，镜头缓缓推近，夕阳" aria-label="想要的视频内容"></textarea>
+          <div class="create-row">
+            <label class="pill"><input type="file" accept="image/*" hidden data-file>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M3.5 14l4-4 3 3 2-2 4 4"/></svg>
+              <span>开头画面</span></label>
+            <button type="button" class="pill" id="video-pick">从我的画里选</button>
+            <select class="pill" name="ratio" aria-label="画面比例"></select>
+            <select class="pill" name="duration" aria-label="时长"><option value="5">5 秒</option><option value="10">10 秒</option></select>
+            <select class="pill" name="model" aria-label="视频模型"></select>
+            <span class="spacer"></span>
+            <button class="primary go" type="submit">开始制作</button>
+          </div>
+        </form>
+        <p class="small-note page-note">一段视频大约要等 1 到 5 分钟。可以先离开，做好了会出现在下面。</p>
+        <div class="list-head"><h2>我的视频</h2></div>
+        <div class="gallery videos" id="video-gallery"></div>
+      </div>
+    </div>
+
+    <!-- coding -->
+    <div class="view page" id="view-code" hidden>
+      <div class="page-inner">
+        <div class="page-head">
+          <h1>写程序</h1>
+          <p>把编程任务交给 AI 团队。它们在这台电脑上写代码、跑检查，通过了才合并进项目。</p>
+        </div>
+        <div class="notice" id="code-notice" hidden></div>
+        <form class="create-card" id="code-form" autocomplete="off">
+          <div class="field-row">
+            <label>项目<select name="project"></select></label>
+            <div class="seg-field"><span class="field-label">难度</span>
+              <div class="seg" role="radiogroup" aria-label="难度">
+                <label><input type="radio" name="difficulty" value="S" checked><span>简单</span></label>
+                <label><input type="radio" name="difficulty" value="M"><span>一般</span></label>
+                <label><input type="radio" name="difficulty" value="L"><span>复杂</span></label>
+              </div>
+            </div>
+          </div>
+          <label>要做什么<input name="title" placeholder="一句话说清楚，例如：给统计结果加一个导出 Excel 的按钮" required maxlength="200"></label>
+          <label>详细说明（可以不填）<textarea name="spec" rows="4" placeholder="要求、例子、注意事项……写得越清楚，做得越准"></textarea></label>
+          <details class="advanced">
+            <summary>验收命令（可以不填）</summary>
+            <label class="sub">每行一条，全部通过才算完成。不填就用项目里设好的检查。<textarea name="verify" rows="2" placeholder="python -m unittest"></textarea></label>
+          </details>
+          <div class="create-row"><span class="spacer"></span><button class="primary go" type="submit">交给 AI</button></div>
+        </form>
+        <div class="list-head"><h2>任务</h2></div>
+        <div class="jobs" id="code-jobs"></div>
+      </div>
+    </div>
+
+    <!-- documents -->
+    <div class="view page" id="view-docs" hidden>
+      <div class="page-inner">
+        <div class="page-head">
+          <h1>文档</h1>
+          <p>问 Excel 表格、写通知总结、改文章、按单位模板填 Word。姓名、电话、身份证号这类信息会先换成代号再发给 AI，结果里再换回来。资金追踪和找信息只在这台电脑上算，不发给 AI。</p>
+        </div>
+        <div class="notice" id="docs-notice" hidden></div>
+        <form class="create-card" id="docs-form" autocomplete="off">
+          <div class="seg doc-kinds" role="radiogroup" aria-label="做什么">
+            <label><input type="radio" name="kind" value="ask" checked><span>问表格</span></label>
+            <label><input type="radio" name="kind" value="draft"><span>写文档</span></label>
+            <label><input type="radio" name="kind" value="polish"><span>改文档</span></label>
+            <label><input type="radio" name="kind" value="fill"><span>填模板</span></label>
+            <label><input type="radio" name="kind" value="trace"><span>资金追踪</span></label>
+            <label><input type="radio" name="kind" value="find"><span>找信息</span></label>
+          </div>
+          <div class="file-pick" data-for="ask polish fill">
+            <label class="pill"><input type="file" hidden data-file="main">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3h5.5L15 6.5V16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M11 3v4h4"/></svg>
+              <span id="docs-file-label">选择表格</span></label>
+            <span class="file-name" id="docs-file-name">还没有选文件</span>
+          </div>
+          <div class="file-pick" data-for="trace find">
+            <label class="pill"><input type="file" hidden multiple data-file="inputs">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
+              <span id="docs-inputs-label">选择银行流水（可以多选）</span></label>
+            <span class="file-name" id="docs-inputs-count">还没有选文件</span>
+          </div>
+          <div class="file-list" id="docs-inputs" data-for="trace find"></div>
+          <div class="tpl-pick" data-for="draft">
+            <span class="field-label">常用模板（点一个，填几个空就行）</span>
+            <div class="tpl-chips" id="docs-templates"></div>
+          </div>
+          <div class="tpl-fields" id="docs-tpl-fields" hidden></div>
+          <textarea name="text" rows="3" aria-label="要求"></textarea>
+          <div class="quick" data-for="polish">
+            <button type="button" class="pill" data-quick="润色：语句通顺、用词准确，不改原意">润色</button>
+            <button type="button" class="pill" data-quick="压缩到 500 字以内，保留要点">压缩到 500 字</button>
+            <button type="button" class="pill" data-quick="改得更正式、更规范">更正式</button>
+            <button type="button" class="pill" data-quick="只改错别字和标点，其他不动">改错别字</button>
+          </div>
+          <div class="find-types" data-for="find">
+            <span class="field-label">也可以找所有的：</span>
+            <label class="pill check"><input type="checkbox" name="ftype" value="身份证"><span>身份证号</span></label>
+            <label class="pill check"><input type="checkbox" name="ftype" value="手机"><span>手机号</span></label>
+            <label class="pill check"><input type="checkbox" name="ftype" value="银行卡"><span>银行卡号</span></label>
+            <label class="pill check"><input type="checkbox" name="ftype" value="邮箱"><span>邮箱</span></label>
+          </div>
+          <div class="file-list" id="docs-materials" data-for="draft fill"></div>
+          <div class="create-row">
+            <label class="pill" data-for="draft fill"><input type="file" hidden multiple accept=".docx,.doc,.wps,.rtf,.txt,.md" data-file="materials">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg><span>参考材料</span></label>
+            <select class="pill" name="style" aria-label="版式" data-for="draft polish"><option value="plain">普通版式</option><option value="gongwen">公文版式</option></select>
+            <select class="pill" name="days" aria-label="到账最多隔几天" data-for="trace"><option value="1">1 天内到账</option><option value="3" selected>3 天内到账</option><option value="7">7 天内到账</option><option value="15">15 天内到账</option></select>
+            <label class="switch" data-for="find" title="只列出所有词都出现的文件"><input type="checkbox" name="allwords"><span>每个词都要有</span></label>
+            <label class="switch" data-for="ask draft polish fill" title="只用国内的模型：DeepSeek、千问、豆包"><input type="checkbox" name="sensitive"><span>敏感模式</span></label>
+            <span class="spacer"></span>
+            <button class="primary go" type="submit">开始</button>
+          </div>
+          <details class="advanced" data-for="ask draft polish fill">
+            <summary>另外要隐藏的词</summary>
+            <label class="sub">人名、单位名等，用逗号隔开。身份证号、手机号、银行卡号、邮箱，以及「联系人：」这类后面的名字会自动隐藏。
+              <input name="mask" placeholder="例如：张三，某某局"></label>
+          </details>
+        </form>
+        <p class="small-note page-note">文件只存在这台电脑上。问表格时只发列名和前 5 行，数字在电脑上算；写、改、填会发你的要求和文档内容。发之前都会先隐藏个人信息。资金追踪和找信息完全不发给 AI。涉密文件不要用。</p>
+        <div class="list-head"><h2>我的文档</h2></div>
+        <div class="jobs" id="docs-jobs"></div>
+      </div>
+    </div>
+
+    <!-- agents (admin) -->
+    <div class="view page" id="view-agents" hidden>
+      <div class="page-inner">
+        <div class="page-head">
+          <h1>Agent</h1>
+          <p>每个 AI 助手在做什么、用了多少、最近成功率；可以暂停、恢复，或者把排队的任务换给另一个。</p>
+        </div>
+        <div class="notice" id="agents-notice" hidden></div>
+        <div class="agents-body" id="agents-body"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="auth" id="auth" hidden>
+  <form class="auth-card" id="auth-form">
+    <div class="auth-mark"><span class="seal" aria-hidden="true"><span class="mark"></span></span></div>
+    <h1 id="auth-title">欢迎回来</h1>
+    <p class="muted" id="auth-sub">登录后开始使用</p>
+    <label>用户名<input name="name" autocomplete="username" required></label>
+    <label id="display-row" hidden>怎么称呼你<input name="display" placeholder="例如：妈妈"></label>
+    <label>密码<input name="password" type="password" autocomplete="current-password" required minlength="1"></label>
+    <p class="error" id="auth-error" role="alert"></p>
+    <button class="primary" type="submit" id="auth-submit">登录</button>
+    <button type="button" class="link lang-toggle" data-no-tr id="auth-lang"></button>
+  </form>
+</div>
+
+<dialog class="sheet" id="settings">
+  <form method="dialog" class="sheet-head">
+    <h2>设置</h2>
+    <button class="icon-btn" aria-label="关闭"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+  </form>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="models" role="tab">聊天</button>
+    <button class="tab" data-tab="media" role="tab">画图视频</button>
+    <button class="tab" data-tab="people" role="tab">家人</button>
+    <button class="tab" data-tab="code" role="tab">写程序</button>
+    <button class="tab" data-tab="remote" role="tab">外出</button>
+  </div>
+  <div class="tab-body" id="tab-models"></div>
+  <div class="tab-body" id="tab-media" hidden></div>
+  <div class="tab-body" id="tab-people" hidden></div>
+  <div class="tab-body" id="tab-code" hidden></div>
+  <div class="tab-body" id="tab-remote" hidden></div>
+</dialog>
+
+<dialog class="sheet small" id="password-dialog">
+  <form class="pw-form" id="pw-form">
+    <h2>修改密码</h2>
+    <label>原密码<input name="old" type="password" autocomplete="current-password" required></label>
+    <label>新密码（至少 8 位）<input name="new" type="password" autocomplete="new-password" minlength="8" required></label>
+    <p class="error" id="pw-error" role="alert"></p>
+    <div class="row-end">
+      <button type="button" class="ghost" id="pw-cancel">取消</button>
+      <button class="primary" type="submit">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="viewer" id="viewer">
+  <div class="viewer-media" id="viewer-media"></div>
+  <div class="viewer-bar">
+    <p class="viewer-prompt" id="viewer-prompt"></p>
+    <div class="viewer-actions" id="viewer-actions"></div>
+  </div>
+  <form method="dialog"><button class="icon-btn viewer-close" aria-label="关闭"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button></form>
+</dialog>
+
+<dialog class="sheet" id="picker">
+  <form method="dialog" class="sheet-head">
+    <h2>选一张图</h2>
+    <button class="icon-btn" aria-label="关闭"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+  </form>
+  <div class="picker-grid" id="picker-grid"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<dialog class="sheet" id="dispatch-dialog">
+  <form class="create-card" id="dispatch-form">
+    <h2>让 AI 分派并监督</h2>
+    <p class="small-note">AI 会结合当前讨论拆分任务，交给项目中配置的 Agent。执行会使用这些 Agent 的订阅额度或 API 余额。</p>
+    <label>在哪个项目里执行<select name="project" required></select></label>
+    <label>这次要完成什么<textarea name="goal" rows="5" maxlength="8000" required placeholder="确认讨论后的最终目标，可在这里补充或修改"></textarea></label>
+    <label>最多同时执行几个任务<select name="jobs"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></label>
+    <p class="small-note">AI 会分类任务、安排先后顺序。MAO 自动跟踪、验收，失败时按设置重试或换人；高风险成果仍按项目规则等待你确认合并。</p>
+    <p class="error" id="dispatch-error" role="alert"></p>
+    <div class="row-end"><button type="button" class="ghost" id="dispatch-cancel">取消</button>
+      <button type="submit" class="ghost" value="preview">先预览计划</button>
+      <button type="submit" class="primary" value="start">开始分派并监督</button></div>
+  </form>
+</dialog>
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>
+<script src="/dispatch.js"></script>
+</body>
+</html>
