@@ -75,3 +75,51 @@ def headers_for(preset: Preset | None, key: str) -> dict[str, str]:
     if preset.id == "anthropic":
         h["anthropic-version"] = "2023-06-01"
     return h
+
+
+# Canonical company for the vendors adapters report (api pools report the base URL's domain)
+VENDOR_ALIASES = {
+    "googleapis": "google", "gemini": "google",
+    "alibaba-cn": "alibaba", "aliyuncs": "alibaba", "dashscope": "alibaba", "qwen": "alibaba",
+    "volces": "volcengine", "doubao": "volcengine", "ark": "volcengine",
+}
+SHORT_NAMES = {"deepseek": "DeepSeek", "openai": "GPT", "anthropic": "Claude", "qwen": "Qwen", "gemini": "Gemini",
+               "doubao": "Doubao"}
+PRESET_BY_VENDOR = {"deepseek": "deepseek", "openai": "openai", "anthropic": "anthropic", "alibaba": "qwen",
+                    "google": "gemini", "volcengine": "doubao"}
+CLI_NAMES = {"claude_code": "Claude", "codex": "Codex", "gemini": "Gemini"}
+INITIALS = {"Claude": "Cl", "Codex": "Co", "DeepSeek": "DS", "Gemini": "Ge", "GPT": "GP", "Qwen": "Qw", "Doubao": "Db"}
+COLORS = ("anthropic", "openai", "deepseek", "google", "alibaba")
+
+
+def describe_pool(cfg, pool: str) -> dict[str, str]:
+    """How to show a pool to people: {pool, name, vendor, model, billing, initials, color}."""
+    from .adapters import make_adapter
+
+    pcfg = cfg.pools.get(pool) or {}
+    executor = str(pcfg.get("executor") or "")
+    try:
+        adapter = make_adapter(cfg, pool)
+        raw_vendor, model = adapter.vendor, adapter.model
+    except (KeyError, ValueError):
+        raw_vendor, model = str(pcfg.get("vendor") or pool).lower(), str(pcfg.get("model") or "")
+    vendor = VENDOR_ALIASES.get(raw_vendor, raw_vendor)
+    short = ""
+    if executor == "opencode" and "/" in model:
+        preset = BY_OPENCODE_PREFIX.get(model.split("/", 1)[0])
+        short = SHORT_NAMES.get(preset.id, "") if preset else ""
+    elif executor == "api":
+        preset = BY_ID.get(str(pcfg.get("provider") or "")) or preset_for_base_url(str(pcfg.get("base_url") or ""))
+        short = SHORT_NAMES.get(preset.id if preset else PRESET_BY_VENDOR.get(vendor, ""), "")
+    if pcfg.get("name"):  # a pool can carry its own display name
+        name = str(pcfg["name"])
+    elif executor in CLI_NAMES:
+        name = CLI_NAMES[executor]
+    elif executor == "api":
+        name = f"{short} API" if short else pool
+    else:
+        name = short or pool
+    key = short or name
+    billing = pcfg.get("billing") or ("api" if executor in ("opencode", "api") else "subscription")
+    return {"pool": pool, "name": name, "vendor": vendor, "model": model, "billing": str(billing),
+            "initials": INITIALS.get(key, key[:2]), "color": vendor if vendor in COLORS else "other"}

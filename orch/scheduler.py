@@ -21,7 +21,7 @@ from . import workspace as ws
 from .adapters import RunContext
 from .config import DEFAULT_CONFIG_TOML, Config
 from .models import INFRA_FAILURES, Run, RunResult, RunStatus, Task, TaskStatus
-from .proc import STOP, Slots, kill_tree, pid_alive
+from .proc import STOP, Slots, kill_tree, pid_alive, run_alive
 from .router import Breakers, Router
 from .store import Store
 from .verify import run_verify
@@ -117,11 +117,13 @@ def init_project(project: Path) -> list[str]:
 
 class Orchestrator:
     def __init__(self, project: Path, say: Callable[[str], None] = print,
-                 slots: Slots | None = None, git_lock: threading.RLock | None = None):
+                 slots: Slots | None = None, git_lock: threading.RLock | None = None,
+                 cfg: Config | None = None):
         self.project = project.resolve()
         if not (self.project / ".agents").is_dir():
             raise OrchError(tr("{0} 还没有初始化。先运行: orch init", self.project))
-        self.cfg = Config.load(self.project)
+        # parallel workers share their parent's config: one run, one set of settings
+        self.cfg = cfg or Config.load(self.project)
         self.store = Store(self.cfg.agents_dir / "state.db")  # one SQLite connection per thread
         self.breakers = Breakers(self.store, self.cfg)
         self.router = Router(self.cfg, self.store, self.breakers)
@@ -183,7 +185,7 @@ class Orchestrator:
     def recover(self) -> None:
         """Runs left 'running' by a dead orchestrator become INTERRUPTED -> handoff path."""
         for run in self.store.running_runs():
-            if pid_alive(run.pid):
+            if run_alive(run.pid, run.started_at):   # not a newer program that got the same pid
                 self.say(tr("! {0} 的进程 {1} 还活着但已无人管理，正在停止它", run.id, run.pid))
                 kill_tree(int(run.pid))  # type: ignore[arg-type]
             run.status = RunStatus.INTERRUPTED
@@ -312,7 +314,7 @@ class Orchestrator:
                 checkpoint.refresh(self)
 
     def _worker(self, task_id: str, done_q: "queue.Queue[str]") -> None:
-        o = Orchestrator(self.project, self.say, slots=self.slots, git_lock=self.git_lock)
+        o = Orchestrator(self.project, self.say, slots=self.slots, git_lock=self.git_lock, cfg=self.cfg)
         try:
             task = o.store.get_task(task_id)
             if task is not None:
@@ -347,10 +349,20 @@ class Orchestrator:
         all_runs = self.store.runs_for(task.id)
         runs = [r for r in all_runs if r.kind == "work"]
         last: Run | None = runs[-1] if runs else None
-        total_runs = len(runs)
+        # The run cap counts the runs since a person last sent the task back (retry or feedback):
+        # every new round of the user's own requests starts with a fresh allowance.
+        since = self.store.last_log_ts(task.id, ("user_feedback", "task_retried"))
+        total_runs = sum(1 for r in runs if r.started_at >= since)
+        # Runs cut short (crash, rate limit, Ctrl+C, a restart) said nothing about the work, so the
+        # decisions below look past them: a request for changes survives an interrupted fix.
+        worked = [r for r in all_runs if r.kind == "review" or r.status not in INFRA_FAILURES]
         # The newest run is a review that rejected the work: the next run addresses it. Read back
         # from the database, so this also holds after a restart or `orch task retry`.
-        review_fix = bool(last and all_runs[-1].kind == "review" and all_runs[-1].verified is False)
+        review_fix = bool(last and worked and worked[-1].kind == "review" and worked[-1].verified is False)
+        # The user asked for changes after the last work run (Orchestrator.requeue with feedback).
+        asked = self.store.last_log_ts(task.id, ("user_feedback",))
+        done_work = [r for r in worked if r.kind == "work"]
+        feedback = bool(asked and last and asked > (done_work[-1].started_at if done_work else 0))
         last_verify_log = ""
         threshold = int(self.cfg.esc.get("verify_failures", 2))
         early_on = bool(self.cfg.esc.get("early_escalation", True))
@@ -360,7 +372,8 @@ class Orchestrator:
         # this safety cap so a misconfiguration can never loop forever.
         infra_cap = task.max_runs + len(route) * int(self.cfg.esc.get("breaker_threshold", 2))
 
-        if last and last.verified is True and all_runs[-1].kind == "review" and all_runs[-1].verified is None:
+        if (last and last.verified is True and all_runs[-1].kind == "review" and all_runs[-1].verified is None
+                and not feedback):
             # The work already passed acceptance; only its review was cut short.
             self.say(tr("[{0}] 上次的审查没有完成，重新审查（不重做任务）", task.id))
             done = self._after_pass(task, wt, last.pool, self._vendor_of(last.pool))
@@ -369,7 +382,7 @@ class Orchestrator:
             review_fix = True
 
         while True:
-            over = self._over_budget(task)
+            over = self._over_budget(task, since)
             if over:
                 return self._finish(task, TaskStatus.BLOCKED, over)
             if task.runs_count >= task.max_runs:
@@ -390,6 +403,15 @@ class Orchestrator:
             rot = self._rotation_reason(task, last) if last is not None and last.pool == pool else None
             if last is None:
                 mode, resume = "fresh", None
+            elif feedback:
+                if (last.pool == pool and last.session_id and last.status not in INFRA_FAILURES
+                        and adapter.supports_resume() and not rot):
+                    mode, resume = "user_feedback", last.session_id
+                else:
+                    mode, resume = "feedback_takeover", None
+                    reason = rot or (f"The user asked for changes to the work done on '{last.pool}'. That "
+                                     f"session cannot be continued, so you continue in a fresh session.")
+                    ho.write_handoff(wt, ho.build_handoff(task, last, wt, integ, last_verify_log, reason))
             elif review_fix:
                 if (last.pool == pool and last.session_id and last.status not in INFRA_FAILURES
                         and adapter.supports_resume() and not rot):
@@ -469,7 +491,7 @@ class Orchestrator:
             self.store.log("run_end", f"{result.status.value}{cp}", task_id=task.id, run_id=run.id)
             last = run
             if result.status not in INFRA_FAILURES:
-                review_fix = False
+                review_fix = feedback = False
 
             if result.status in INFRA_FAILURES:
                 if result.status != RunStatus.INTERRUPTED:  # Ctrl+C is not the executor's fault
@@ -490,6 +512,9 @@ class Orchestrator:
                 self._finish(task, TaskStatus.QUEUED, "stopped by user during acceptance; next run checks again")
                 raise KeyboardInterrupt
             ho.write_verify_log(wt, log)
+            # verify.log is overwritten by every run; keep each run's own copy for the history
+            (self.task_dir(task.id) / "runs").mkdir(exist_ok=True)
+            (self.task_dir(task.id) / "runs" / f"{run.id}.verify.log").write_text(log, encoding="utf-8")
             last_verify_log = log
             run.verified = passed
             self.store.save_run(run)
@@ -576,21 +601,25 @@ class Orchestrator:
         billing = pcfg.get("billing") or ("api" if pcfg.get("executor") in ("opencode", "api") else "subscription")
         return billing == "api"
 
-    def task_spend(self, task_id: str) -> tuple[float, int]:
-        """(dollars spent on API pools, tokens in + out on all pools) by a task's work and review runs."""
+    def task_spend(self, task_id: str, since: float = 0.0) -> tuple[float, int]:
+        """(dollars spent on API pools, tokens in + out on all pools) by a task's work and review runs
+        (those started at or after `since`)."""
         usd, tokens = 0.0, 0
         for r in self.store.runs_for(task_id):
+            if r.started_at < since:
+                continue
             if r.est_cost_usd and self.is_api_pool(r.pool):
                 usd += r.est_cost_usd
             tokens += (r.tokens_in or 0) + (r.tokens_out or 0)
         return usd, tokens
 
-    def _over_budget(self, task: Task) -> str | None:
-        """V2-6: stop a task and hand it to the user once it has cost more than [budget] allows."""
+    def _over_budget(self, task: Task, since: float = 0.0) -> str | None:
+        """V2-6: stop a task and hand it to the user once it has cost more than [budget] allows.
+        Counted from `since`: a retry or new feedback from the user starts a fresh budget."""
         b = self.cfg.data.get("budget", {})
         max_usd = float(b.get("max_usd_per_task", 0) or 0)
         max_tokens = int(b.get("max_tokens_per_task", 0) or 0)
-        usd, tokens = self.task_spend(task.id)
+        usd, tokens = self.task_spend(task.id, since)
         if max_usd and usd >= max_usd:
             return (f"budget: API spend ${usd:.3f} reached max_usd_per_task ${max_usd:.2f}; raise "
                     f"[budget] max_usd_per_task in orch.toml, then orch task retry {task.id}")
@@ -634,8 +663,8 @@ class Orchestrator:
                 continue
             _, pool, adapter = picked
             result = self._agent_call(task, wt, pool, adapter, "resolve_conflict")
-            if result.status not in INFRA_FAILURES:
-                break
+            if result.status not in INFRA_FAILURES or result.status == RunStatus.INTERRUPTED:
+                break   # stopped: no other agent either; everything is rolled back below
         else:
             result = None
         if result is not None and result.status == RunStatus.COMPLETED:
@@ -680,7 +709,9 @@ class Orchestrator:
         from .plan import _finish_run
 
         _finish_run(self.store, run, result)
-        if result.status in INFRA_FAILURES:
+        if result.status == RunStatus.INTERRUPTED:
+            pass   # stopped by the user (or a closing web page): not the pool's fault
+        elif result.status in INFRA_FAILURES:
             self.breakers.record_failure(pool, result.status, result.resets_at)
         else:
             self.breakers.record_success(pool)
@@ -731,6 +762,94 @@ class Orchestrator:
             self.say(f"[{task.id}] {status.value}: {note}")
         return task
 
+    # -- a person's decisions on one task -----------------------------------------
+    def _task_or_error(self, task_id: str) -> Task:
+        task = self.store.get_task(task_id)
+        if task is None:
+            raise OrchError(tr("没有任务 {0}", task_id))
+        return task
+
+    def requeue(self, task_id: str, feedback: str = "", from_start: bool = False) -> Task:
+        """Queue a task again (`orch task retry`, or the user's "change this" from the web page).
+
+        With feedback the user's words are appended to the spec (TASK.md is rebuilt from it before every
+        run, so both the next agent and the next reviewer read them) and the next run continues the same
+        agent session when it can. Counters start over; so do the run cap and the budget."""
+        task = self._task_or_error(task_id)
+        if task.status in (TaskStatus.RUNNING, TaskStatus.MERGED):
+            raise OrchError(f"{task_id} is {task.status.value}; it cannot be queued again")
+        feedback = feedback.strip()
+        # an agent that stopped to ask left "BLOCKED: <question>" on top of PROGRESS.md: the next run would
+        # count as stuck again whatever it did, so it goes (the question moves into the spec with the answer)
+        wt = Path(task.worktree) if task.worktree else None
+        question = ho.clear_blocked(wt) if wt is not None and wt.is_dir() else None
+        if feedback:
+            n = sum(1 for r in self.store.logs_for(task_id) if r["kind"] == "user_feedback") + 1
+            body = f"Your question: {question}\n\nThe user's answer:\n\n{feedback}" if question else feedback
+            task.spec = f"{task.spec.rstrip()}\n\n## Change requested by the user (round {n})\n\n{body}\n"
+        route = self.router.route(task)
+        if from_start or task.ladder >= len(route):
+            task.ladder = 0
+        task.status, task.runs_count, task.verify_failures, task.review_rounds = TaskStatus.QUEUED, 0, 0, 0
+        task.note = (f"{ho.ANSWERED} round {n}" if question else f"user feedback round {n}") if feedback else \
+            "retry requested"
+        self.store.save_task(task)
+        if feedback:
+            self.store.log("user_feedback", feedback[:4000], task_id=task_id)
+        else:
+            self.store.log("task_retried", "", task_id=task_id)
+        return task
+
+    def sync_with_integration(self, task_id: str) -> bool:
+        """Merge the integration branch into the task's branch (no agent involved), so that a fix after a failed
+        merge works on, and is checked on, what the integration branch holds now. Only before queueing the task
+        again (`requeue`). On a conflict nothing changes and False is returned: merging resolves it later."""
+        task = self._task_or_error(task_id)
+        if task.status in (TaskStatus.RUNNING, TaskStatus.MERGED):
+            raise OrchError(f"{task_id} is {task.status.value}; it cannot take the integration branch in now")
+        wt = Path(task.worktree) if task.worktree else None
+        if wt is None or not wt.is_dir():
+            return False
+        integ = self.integration_branch
+        with self.git_lock:
+            ws.checkpoint(wt, f"wip({task.id}): before merging {integ}")   # a clean tree: abort restores it all
+            try:
+                ws.git([*ws.ident(wt), "merge", "--no-ff", "--no-edit", "-m", f"merge {integ} into {task.branch}",
+                        integ], wt)
+            except ws.GitError as e:
+                ws.git(["merge", "--abort"], wt, check=False)
+                self.store.log("integration_conflict", str(e)[-300:], task_id=task_id)
+                self.say(tr("[{0}] {1} 和这个任务的修改冲突，先在原来的基础上修改", task_id, integ))
+                return False
+        self.store.log("integration_merged", integ, task_id=task_id)
+        self.say(tr("[{0}] 已把 {1} 的最新内容合进来，修改会在合并后的代码上验收", task_id, integ))
+        return True
+
+    def cancel(self, task_id: str) -> Task:
+        """Drop a task: its worktree goes, its branch stays (`orch task retry` brings it back)."""
+        task = self._task_or_error(task_id)
+        if task.status in (TaskStatus.RUNNING, TaskStatus.MERGED):
+            raise OrchError(tr("{0} 状态是 {1}，不能取消", task_id, task.status.value))
+        if task.worktree and Path(task.worktree).exists():
+            with self.git_lock:
+                ws.remove_worktree(self.project, Path(task.worktree))
+        task.status, task.note = TaskStatus.CANCELLED, "cancelled by user"
+        self.store.save_task(task)
+        self.store.log("task_cancelled", "", task_id=task_id)
+        return task
+
+    def accept(self, task_id: str) -> Task:
+        """A person accepts work the review would not pass. Only when its last work run passed acceptance."""
+        task = self._task_or_error(task_id)
+        work = self.store.runs_for(task_id, kind="work")
+        if task.status not in (TaskStatus.BLOCKED, TaskStatus.FAILED) or not work or work[-1].verified is not True:
+            raise OrchError(tr("{0} 状态是 {1}，最后一次运行验收{2}。只有验收通过、但被审查卡住的任务可以人工放行。",
+                               task_id, task.status.value, tr('通过') if work and work[-1].verified else tr('未通过')))
+        task.status, task.note = TaskStatus.VERIFIED, "accepted by a human despite the review"
+        self.store.save_task(task)
+        self.store.log("task_accepted", task.note, task_id=task_id)
+        return task
+
     # -- merge ---------------------------------------------------------------
     def merge(self, task_id: str, keep_worktree: bool = False) -> bool:
         task = self.store.get_task(task_id)
@@ -749,10 +868,13 @@ class Orchestrator:
                 ws.abort_merge(integ_wt)
                 ok, detail = ws.squash_merge(integ_wt, task.branch, f"{task.id}: {task.title}")
             conflict = not ok and ("CONFLICT" in detail or "conflict" in detail.lower())
+        if not ok and STOP.is_set():   # stopped while an agent resolved the conflict: try again later
+            raise KeyboardInterrupt
         if not ok:
             what = "merge conflict with integration branch" if conflict else "merge failed"
             task.note = f"{what}: " + detail[-500:]
             self.store.save_task(task)
+            self.store.log("merge_failed", ("conflict: " if conflict else "error: ") + detail[-500:], task_id=task_id)
             self.say(tr("[{0}] {1}，已回滚。详情: {2}", task_id, '合并冲突' if conflict else '合并失败', detail[-300:]))
             return False
         # the task's own acceptance, then the project-wide baseline (V2-5): another task's tests
@@ -766,10 +888,14 @@ class Orchestrator:
             if detail != "nothing to merge":
                 with self.git_lock:
                     ws.undo_last_commit(integ_wt)
+            if STOP.is_set():   # stopped during the check (Ctrl+C, a pause): the work did not fail, ask again later
+                self.say(tr("[{0}] 合并后的验收被中断，已撤销合并；任务仍是 verified", task_id))
+                raise KeyboardInterrupt
             what = "acceptance or baseline" if baseline else "acceptance"
             task.note = (f"merged result failed {what} on the integration branch; merge undone "
                          f"(see {self.task_dir(task_id) / 'merge_verify.log'})")
             self.store.save_task(task)
+            self.store.log("merge_failed", f"tests_failed: {what}", task_id=task_id)
             self.say(tr("[{0}] 合并后在 integration 分支验收失败，已撤销合并", task_id))
             return False
         task.status = TaskStatus.MERGED

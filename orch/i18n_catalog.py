@@ -164,7 +164,6 @@ _ZH: dict[str, tuple[str, str]] = {
     "M5：两家出方案、互评、裁判写 ADR。decide \"问题\" | show | accept ID | reject ID | list": ("two vendors propose, critique each other, a judge writes an ADR. decide \"question\" | show | accept ID | reject ID | list", "2 社が案を出し、相互に講評し、審判が ADR を書く。decide \"質問\" | show | accept ID | reject ID | list"),
     "补充说明（文本文件）": ("extra notes (a text file)", "補足（テキストファイル）"),
     "回答用的语言，例如 \"Simplified Chinese\"（默认看 [decide] language）": ("answer language, e.g. \"English\" (default: [decide] language)", "回答の言語。例: \"Japanese\"（既定は [decide] language）"),
-    "MCP 服务（stdio）：在 Claude / ChatGPT 等聊天应用里查看和派发 orch 任务": ("MCP server (stdio): see and hand out orch tasks from chat apps such as Claude or ChatGPT", "MCP サーバー（stdio）：Claude や ChatGPT などのチャットアプリから orch のタスクを確認・依頼"),
     "要管理的项目目录，可多次指定（默认 -p 的项目）": ("project directory to manage; may be given several times (default: the -p project)", "管理するプロジェクトのディレクトリ（複数回指定可、既定は -p のプロジェクト）"),
     "v0.3：按执行记录给路由建议（suggest），你同意后再改配置（apply S-n）": ("routing suggestions from the execution records (suggest); the config changes only when you apply one (apply S-n)", "実行記録からルートを提案（suggest）。承認したときだけ設定を変更（apply S-n）"),
     "给建议所需的最少任务数（默认 5）": ("minimum number of tasks for a suggestion (default 5)", "提案に必要な最少タスク数（既定 5）"),
@@ -354,6 +353,9 @@ _ZH.update({
     "{0} 状态是 {1}，只有 verified 的任务可以合并": ("{0} is {1}; only a verified task can be merged", "{0} は {1} です。verified のタスクだけをマージできます"),
     "[{0}] {1}，已回滚。详情: {2}": ("[{0}] {1}; rolled back. Details: {2}", "[{0}] {1}。ロールバックしました。詳細: {2}"),
     "[{0}] 合并后在 integration 分支验收失败，已撤销合并": ("[{0}] failed acceptance on the integration branch after the merge; merge undone", "[{0}] マージ後に integration ブランチで検収に失敗したため、マージを取り消しました"),
+    "[{0}] 合并后的验收被中断，已撤销合并；任务仍是 verified": ("[{0}] the check after the merge was stopped; merge undone, the task stays verified", "[{0}] マージ後の検収が中断されたため、マージを取り消しました。タスクは verified のままです"),
+    "[{0}] 已把 {1} 的最新内容合进来，修改会在合并后的代码上验收": ("[{0}] brought in the latest {1}; the fix is checked on the merged code", "[{0}] {1} の最新の内容を取り込みました。修正はマージ後のコードで検収されます"),
+    "[{0}] {1} 和这个任务的修改冲突，先在原来的基础上修改": ("[{0}] {1} conflicts with this task's changes; the fix starts from the task's own branch", "[{0}] {1} とこのタスクの変更が衝突するため、元のブランチのまま修正します"),
     "另一个 orch 进程（pid {0}）正在运行这个项目。": ("Another orch process (pid {0}) is running this project.", "別の orch プロセス（pid {0}）がこのプロジェクトを実行中です。"),
     "! {0} 的进程 {1} 还活着但已无人管理，正在停止它": ("! process {1} of {0} is still alive but orphaned; stopping it", "! {0} のプロセス {1} が管理されないまま残っているため停止します"),
     "仍在排队（依赖未合并）: {0}": ("Still queued (dependencies not merged): {0}", "キュー待ち（依存が未マージ）: {0}"),
@@ -411,6 +413,7 @@ _EN: dict[str, tuple[str, str]] = {
     "unknown provider {0!r}": ("没有这个服务商 {0!r}", "不明な提供元 {0!r}"),
     "pools: {0}": ("池：{0}", "プール: {0}"),
     "not used yet  ->  orch connect {0}": ("还没用上  ->  orch connect {0}", "未使用  ->  orch connect {0}"),
+    "not used yet": ("还没用上", "未使用"),
     "  {0:<10} key {1:<8} {2}": ("  {0:<10} key {1:<8} {2}", "  {0:<10} キー {1:<8} {2}"),
     "run `orch init` in this project first": ("请先在这个项目里运行 `orch init`", "先にこのプロジェクトで `orch init` を実行してください"),
     "no key yet: run `orch key set {0}` (or set {1})": ("还没有 key：运行 `orch key set {0}`（或者设置 {1}）", "まだキーがありません。`orch key set {0}` を実行してください（または {1} を設定）"),
@@ -443,7 +446,6 @@ _ZH_SHEET: dict[str, tuple[str, str]] = {
     "{0} 里没有工作表": ("{0} has no sheets", "{0} にシートがありません"),
     "没有叫「{0}」的工作表；有：{1}": ("No sheet named \"{0}\"; there are: {1}", "「{0}」というシートはありません。あるのは: {1}"),
     "找不到文件：{0}": ("File not found: {0}", "ファイルが見つかりません: {0}"),
-    "只支持 .xlsx 和 .csv 文件（{0}）": ("Only .xlsx and .csv files are supported ({0})", ".xlsx と .csv ファイルのみ対応しています（{0}）"),
     "这个表是空的": ("This table is empty", "この表は空です"),
     "模型的回答里没有 JSON 计划": ("The model's answer contains no JSON plan", "モデルの回答に JSON の計画がありません"),
     "模型给的 JSON 计划格式不对：{0}": ("The model's JSON plan is malformed: {0}", "モデルの JSON 計画の形式が正しくありません: {0}"),
@@ -483,9 +485,6 @@ CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_SHEE
 # orch doc: Word drafting and polishing
 _ZH_DOC: dict[str, tuple[str, str]] = {
     "已保存：{0}（约 {1} 字）": ("Saved: {0} (about {1} words)", "保存しました: {0}（約 {1} 字）"),
-    "写和改 Word：doc draft \"要求\" | polish 文件 \"要求\" | show 文件": ("write and edit Word documents: doc draft \"request\" | polish FILE \"request\" | show FILE", "Word 文書の作成と修正: doc draft \"依頼\" | polish ファイル \"依頼\" | show ファイル"),
-    "要求（draft）或文件（polish、show）": ("the request (draft) or the file (polish, show)", "依頼（draft）またはファイル（polish、show）"),
-    "怎么改（polish，默认润色）": ("what to change (polish; default: tidy up the wording)", "直し方（polish。既定は文章を整える）"),
     "参考材料（.docx / .txt / .md），可多次指定": ("reference material (.docx / .txt / .md); may be given more than once", "参考資料（.docx / .txt / .md）。複数指定できます"),
     "版式：plain 普通（默认），gongwen 公文": ("layout: plain (default) or gongwen (Chinese official document)", "体裁: plain 通常（既定）、gongwen 中国の公文書"),
     "保存成哪个文件（默认用标题命名）": ("file to save to (default: named after the title)", "保存先のファイル（既定はタイトル名）"),
@@ -497,7 +496,6 @@ _ZH_DOC: dict[str, tuple[str, str]] = {
     "要改哪个文件？例如：orch doc polish 总结.docx \"压缩到 800 字\"": ("Which file should it edit? For example: orch doc polish report.docx \"shorten to 800 words\"", "どのファイルを直しますか？ 例: orch doc polish 報告.docx \"800 字に縮めて\""),
     "和 {0} 个材料文件": (" and {0} material file(s)", "と資料ファイル {0} 件"),
     "_改": ("_edited", "_修正"),
-    "只支持 .docx、.txt 和 .md 文件（{0}）": ("Only .docx, .txt and .md files are supported ({0})", ".docx、.txt、.md ファイルのみ対応しています（{0}）"),
     "不认识的版式 {0}；可以用：{1}": ("Unknown layout {0}; available: {1}", "不明な体裁 {0}。使えるもの: {1}"),
     "内容太长（{0} 字符，上限 {1}）：请分几段处理": ("Too long ({0} characters, limit {1}): split it into parts", "長すぎます（{0} 文字、上限 {1}）。いくつかに分けてください"),
     "这个文档没有文字": ("This document has no text", "この文書には文字がありません"),
@@ -687,3 +685,140 @@ _ZH_TRACE: dict[str, tuple[str, str]] = {
     "邮箱": ("E-mail", "メール"),
 }
 CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_TRACE.items()})
+
+# the legacy switch (orch/legacy.py): the old task dispatch is off by default
+_ZH_LEGACY: dict[str, tuple[str, str]] = {
+    "MCP 服务（stdio）：给 Claude Cowork / Claude Desktop 用的工具（讨论方案、办公、ChatGPT 桥接）": (
+        "MCP server (stdio): tools for Claude Cowork / Claude Desktop (discussion briefs, office work, the ChatGPT bridge)",
+        "MCP サーバー（stdio）：Claude Cowork / Claude Desktop 向けのツール（討論の方針、事務作業、ChatGPT ブリッジ）"),
+    "旧的派活功能（默认关闭）：legacy on | off | status": (
+        "the old task dispatch (off by default): legacy on | off | status",
+        "旧タスク配分機能（既定はオフ）：legacy on | off | status"),
+    "旧的派活功能已关闭（{0} 属于它）。要用的话：python -m orch legacy on，或在网页 设置 → 旧功能 里打开。": (
+        "The old task dispatch is off ({0} belongs to it). To use it: python -m orch legacy on, or turn it on in the "
+        "web app under Settings → Legacy.",
+        "旧タスク配分機能はオフです（{0} はその一部です）。使うには python -m orch legacy on を実行するか、Web アプリの"
+        "設定 → 旧機能 でオンにしてください。"),
+    "已打开旧的派活功能：项目页、交给项目和 task / run / plan 等命令又能用了。": (
+        "The old task dispatch is on: the Projects page, Hand to project and the task / run / plan commands work again.",
+        "旧タスク配分機能をオンにしました：プロジェクトページ、「プロジェクトに渡す」、task / run / plan などのコマンドが"
+        "また使えます。"),
+    "已关闭旧的派活功能。数据都保留；已经在运行的任务会自己跑完。": (
+        "The old task dispatch is off. All its data is kept; tasks that are already running finish on their own.",
+        "旧タスク配分機能をオフにしました。データはすべて残ります。実行中のタスクはそのまま最後まで進みます。"),
+    "旧的派活功能：打开": ("Old task dispatch: on", "旧タスク配分機能：オン"),
+    "旧的派活功能：关闭": ("Old task dispatch: off", "旧タスク配分機能：オフ"),
+    "（由环境变量 {0} 决定）": (" (set by the environment variable {0})", "（環境変数 {0} で決まっています）"),
+    "现在由环境变量 MAO_LEGACY_DISPATCH 决定，这里改不了": (
+        "The environment variable MAO_LEGACY_DISPATCH decides this now; it cannot be changed here",
+        "今は環境変数 MAO_LEGACY_DISPATCH で決まっているため、ここでは変更できません"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_LEGACY.items()})
+
+# phone alerts (orch/notify.py, orch/notify_hook.py, `orch notify`)
+_ZH_NOTIFY: dict[str, tuple[str, str]] = {
+    "手机提醒（ntfy）：notify status | setup | off | test | hook install|uninstall|status": (
+        "phone alerts (ntfy): notify status | setup | off | test | hook install|uninstall|status",
+        "スマホ通知（ntfy）：notify status | setup | off | test | hook install|uninstall|status"),
+    "ntfy 服务器地址（默认 https://ntfy.sh；自建服务器才需要改）": (
+        "ntfy server address (default https://ntfy.sh; change it only for your own server)",
+        "ntfy サーバーのアドレス（既定は https://ntfy.sh。自前のサーバーのときだけ変更）"),
+    "换一个新的主题（手机上要重新订阅）": (
+        "pick a new topic (the phone must subscribe again)",
+        "新しいトピックにする（スマホで登録し直す必要があります）"),
+    "输入 ntfy 访问令牌（不显示；直接回车 = 清除）": (
+        "type the ntfy access token (hidden; just Enter = clear it)",
+        "ntfy のアクセストークンを入力（表示されません。Enter だけ = 消去）"),
+    "提醒的语言：zh 或 en": ("language of the alerts: zh or en", "通知の言語：zh または en"),
+    "钩子用的 Python 程序（例如 pythonw.exe 的完整路径，就不会弹出窗口）": (
+        "the Python program the hook runs (e.g. the full path of pythonw.exe, so no window pops up)",
+        "フックが使う Python（例：pythonw.exe のフルパス。ウィンドウが開かなくなります）"),
+    "已安装": ("installed", "インストール済み"),
+    "需要重新安装（MAO 换了位置或 Python 变了）：python -m orch notify hook install": (
+        "needs to be installed again (MAO moved or Python changed): python -m orch notify hook install",
+        "入れ直しが必要です（MAO の場所か Python が変わりました）：python -m orch notify hook install"),
+    "没有安装（python -m orch notify hook install）": (
+        "not installed (python -m orch notify hook install)",
+        "インストールされていません（python -m orch notify hook install）"),
+    "没有找到 Claude Code 的设置文件夹": ("Claude Code's settings folder was not found",
+                                    "Claude Code の設定フォルダーが見つかりません"),
+    "settings.json 读不了，没有改动它": ("settings.json cannot be read; it was left as it is",
+                                   "settings.json を読めません。変更していません"),
+    "Claude Code 钩子已经装好，没有改动。": ("The Claude Code hook is already installed; nothing changed.",
+                                    "Claude Code のフックはインストール済みです。変更はありません。"),
+    "已安装 Claude Code 钩子：{0}（原文件备份在 {1}）": (
+        "Installed the Claude Code hook: {0} (the original is backed up as {1})",
+        "Claude Code のフックをインストールしました：{0}（元のファイルは {1} にバックアップ）"),
+    "已安装 Claude Code 钩子：{0}": ("Installed the Claude Code hook: {0}",
+                              "Claude Code のフックをインストールしました：{0}"),
+    "已移除 Claude Code 钩子（原文件备份在 {0}）": (
+        "Removed the Claude Code hook (the original is backed up as {0})",
+        "Claude Code のフックを削除しました（元のファイルは {0} にバックアップ）"),
+    "没有找到 MAO 的 Claude Code 钩子，没有改动。": ("MAO's Claude Code hook was not found; nothing changed.",
+                                        "MAO の Claude Code フックは見つかりません。変更はありません。"),
+    "Claude Code 钩子：{0}": ("Claude Code hook: {0}", "Claude Code フック：{0}"),
+    "ntfy 访问令牌（直接回车 = 清除）：": ("ntfy access token (just Enter = clear it): ",
+                                  "ntfy アクセストークン（Enter だけ = 消去）："),
+    "已保存访问令牌。": ("Saved the access token.", "アクセストークンを保存しました。"),
+    "已清除访问令牌。": ("Cleared the access token.", "アクセストークンを消去しました。"),
+    "已开启手机提醒。": ("Phone alerts are on.", "スマホ通知をオンにしました。"),
+    "已换了新的主题：手机上要重新订阅。": ("The topic is new: subscribe to it again on the phone.",
+                              "トピックを新しくしました。スマホで登録し直してください。"),
+    "服务器：{0}": ("Server: {0}", "サーバー：{0}"),
+    "主题：{0}": ("Topic: {0}", "トピック：{0}"),
+    "在手机上订阅：{0}": ("Subscribe on the phone: {0}", "スマホで登録：{0}"),
+    "1. 在手机上安装 ntfy（App Store 或 Google Play 搜 ntfy）": (
+        "1. Install ntfy on the phone (search for ntfy in the App Store or Google Play)",
+        "1. スマホに ntfy を入れる（App Store か Google Play で ntfy を検索）"),
+    "2. 打开 ntfy，点 +，主题填上面这一串；用自己的服务器时打开「使用其他服务器」，填服务器地址": (
+        "2. Open ntfy, tap +, and enter the topic above; with your own server, turn on \"Use another server\" and "
+        "enter its address",
+        "2. ntfy を開いて + を押し、上のトピックを入力。自前のサーバーなら「別のサーバーを使う」をオンにしてアドレスを入力"),
+    "3. 运行 python -m orch notify test": ("3. Run python -m orch notify test",
+                                       "3. python -m orch notify test を実行"),
+    "已关闭手机提醒。": ("Phone alerts are off.", "スマホ通知をオフにしました。"),
+    "测试提醒已发出。": ("The test alert was sent.", "テスト通知を送りました。"),
+    "发送失败：{0}": ("Sending failed: {0}", "送信に失敗しました：{0}"),
+    "手机提醒：已开启": ("Phone alerts: on", "スマホ通知：オン"),
+    "手机提醒：未开启": ("Phone alerts: off", "スマホ通知：オフ"),
+    "主题：还没有（运行 python -m orch notify setup）": ("Topic: none yet (run python -m orch notify setup)",
+                                                "トピック：まだありません（python -m orch notify setup を実行）"),
+    "访问令牌：已设置": ("Access token: set", "アクセストークン：設定済み"),
+    "访问令牌：没有": ("Access token: none", "アクセストークン：なし"),
+    "提醒哪些事：{0}": ("Alerts for: {0}", "通知する内容：{0}"),
+    "最近的提醒：": ("Recent alerts:", "最近の通知："),
+    "最近的提醒：没有": ("Recent alerts: none", "最近の通知：なし"),
+    "提醒的重试、讨论和 ChatGPT 检查在网页版里运行：请保持网页版开着（run_web.cmd）。": (
+        "Retries and the discussion and ChatGPT checks run in the web app: keep it running (run_web.cmd).",
+        "再送と、討論・ChatGPT のチェックは Web アプリで動きます。Web アプリを開いたままにしてください（run_web.cmd）。"),
+    # errors (orch/notify.py and orch/notify_hook.py constants, raised as ValueError and shown with tr())
+    "服务器地址要以 https:// 开头，不能带用户名、密码、? 或 #（本机测试可以用 http://127.0.0.1）": (
+        "The server address must start with https:// and must not contain a user name, password, ? or # "
+        "(http://127.0.0.1 is fine for a local test)",
+        "サーバーのアドレスは https:// で始め、ユーザー名・パスワード・? や # を含めないでください（ローカルのテストは "
+        "http://127.0.0.1 で可）"),
+    "主题只能用字母、数字、- 和 _，12 到 64 个字符": (
+        "The topic may only use letters, digits, - and _, 12 to 64 characters",
+        "トピックに使えるのは英字・数字・- と _ だけで、12〜64 文字です"),
+    "提醒的语言只能是中文或 English": ("The language of the alerts can only be Chinese or English",
+                                 "通知の言語は中国語か英語だけです"),
+    "提醒的时间设置不在允许的范围里": ("A time setting of the alerts is out of the allowed range",
+                              "通知の時間設定が許可された範囲外です"),
+    "还没有主题，先生成一个": ("There is no topic yet; create one first", "まだトピックがありません。先に作ってください"),
+    "访问令牌里不能有空格、换行或中文等字符": (
+        "The access token must not contain spaces, line breaks or non-ASCII characters",
+        "アクセストークンに空白・改行・全角文字などは使えません"),
+    "没有找到 Claude Code 的设置文件夹。先安装并打开一次 Claude Code。": (
+        "Claude Code's settings folder was not found. Install Claude Code and open it once first.",
+        "Claude Code の設定フォルダーが見つかりません。先に Claude Code をインストールして一度開いてください。"),
+    "Claude Code 的 settings.json 不是有效的 JSON，没有改动它。请先修好这个文件。": (
+        "Claude Code's settings.json is not valid JSON, so it was left as it is. Fix that file first.",
+        "Claude Code の settings.json が正しい JSON ではないため、変更していません。先にこのファイルを直してください。"),
+    "Claude Code 的 settings.json 里 hooks 的格式和预期不同，没有改动它。": (
+        "The hooks in Claude Code's settings.json are not in the expected shape, so it was left as it is.",
+        "Claude Code の settings.json の hooks が想定と違う形式のため、変更していません。"),
+    "找不到要写进钩子的 Python 程序（python.exe 或 pythonw.exe 的完整路径）。": (
+        "The Python program for the hook was not found (give the full path of python.exe or pythonw.exe).",
+        "フックに書き込む Python が見つかりません（python.exe か pythonw.exe のフルパスを指定してください）。"),
+}
+CATALOG.update({k: {"src": "zh", "en": en, "ja": ja} for k, (en, ja) in _ZH_NOTIFY.items()})

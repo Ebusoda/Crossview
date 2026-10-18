@@ -37,16 +37,24 @@ class FakeAdapter(Adapter):
         return cmd
 
     def parse(self, pr: ProcResult, ctx: RunContext) -> RunResult:
+        """Its own lines, or lines shaped like Claude Code's or Codex's (the demo team imitates real CLIs)."""
         res = RunResult(status=RunStatus.CRASHED)
+        said = ""
         for ev in iter_json(pr.tail):
-            if ev.get("session_id"):
-                res.session_id = ev["session_id"]
-            if ev.get("type") == "result":
+            if ev.get("session_id") or ev.get("thread_id"):
+                res.session_id = ev.get("session_id") or ev["thread_id"]
+            usage = ev.get("usage") if isinstance(ev.get("usage"), dict) else {}
+            if ev.get("type") == "result" or ev.get("type") == "turn.completed":
                 res.status = RunStatus.COMPLETED
-                res.summary = str(ev.get("text", ""))
-                res.est_cost_usd = float(ev.get("cost_usd", 0.0))
-                if isinstance(ev.get("tokens_in"), int):
-                    res.tokens_in = ev["tokens_in"]
+                res.summary = str(ev.get("text", ev.get("result", said)))
+                res.est_cost_usd = float(ev.get("cost_usd", ev.get("total_cost_usd", 0.0)))
+                tokens_in = ev.get("tokens_in", usage.get("input_tokens"))
+                if isinstance(tokens_in, int):
+                    res.tokens_in = tokens_in
+                if isinstance(usage.get("output_tokens"), int):
+                    res.tokens_out = usage["output_tokens"]
+            elif ev.get("type") == "item.completed" and (ev.get("item") or {}).get("type") == "agent_message":
+                said = str(ev["item"].get("text", ""))
             elif ev.get("type") == "error":
                 res.error = str(ev.get("error", ""))
                 res.status = RunStatus.RATE_LIMITED if "rate" in res.error else RunStatus.CRASHED

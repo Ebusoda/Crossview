@@ -14,6 +14,8 @@
 <meta name="apple-mobile-web-app-title" content="MAO">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/job.css">
+<link rel="stylesheet" href="/discuss.css">
 </head>
 <body>
 <div id="app" class="app" hidden>
@@ -29,7 +31,8 @@
       <button data-view="image"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2.5"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="M3.5 14l4-4 3 3 2-2 4 4"/></svg>画图</button>
       <button data-view="video"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="5" width="10" height="10" rx="2.5"/><path d="M13 9l4-2.5v7L13 11"/></svg>视频</button>
       <button data-view="docs"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3h5.5L15 6.5V16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M11 3v4h4M8 11h4M8 14h4"/></svg>文档</button>
-      <button data-view="code" id="nav-code"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 6l-4 4 4 4M13 6l4 4-4 4M11 4.5l-2 11"/></svg>写程序</button>
+      <button data-view="projects" id="nav-projects"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 6l-4 4 4 4M13 6l4 4-4 4M11 4.5l-2 11"/></svg>项目<span class="nav-badge" id="nav-badge" hidden></span></button>
+      <button data-view="discuss" id="nav-discuss" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5A2 2 0 0 1 5 3.5h6.5a2 2 0 0 1 2 2V9a2 2 0 0 1-2 2H8l-3 2.5V11A2 2 0 0 1 3 9z"/><path d="M15.5 7.5A1.5 1.5 0 0 1 17 9v3a1.5 1.5 0 0 1-1.5 1.5H15v2l-2.5-2h-2A1.5 1.5 0 0 1 9 12.5V12"/></svg>讨论<span class="nav-badge" id="nav-discuss-badge" hidden></span></button>
       <button data-view="agents" id="nav-agents"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="6" r="2.4"/><circle cx="5" cy="14" r="2.4"/><circle cx="15" cy="14" r="2.4"/><path d="M8.8 8.1L6.2 12M11.2 8.1l2.6 3.9M7.4 14h5.2"/></svg>Agent</button>
     </nav>
     <div class="chat-side" id="chat-side">
@@ -59,10 +62,11 @@
   <main class="main">
     <header class="topbar">
       <button class="icon-btn only-mobile" id="open-sidebar" aria-label="菜单">
-        <svg viewBox="0 0 20 20"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+        <svg viewBox="0 0 20 20"><path d="M3 6h14M3 10h14M3 14h14"/></svg><span class="menu-badge" id="menu-badge" hidden></span>
       </button>
       <div class="conv-title" id="conv-title"></div>
       <div class="spacer"></div>
+      <button type="button" class="btn ghost add-btn top-add" id="top-add" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>添加项目</button>
     </header>
 
     <!-- chat -->
@@ -72,7 +76,7 @@
           <h1 class="greeting"><span class="seal" aria-hidden="true"><span class="mark"></span></span><span class="tagline">MAO · 全家的 AI 助手</span><span id="greeting-text"></span></h1>
         </div>
         <div class="messages" id="messages"></div>
-        <div class="dispatch-jobs" id="dispatch-jobs" aria-live="polite"></div>
+        <div class="chat-jobs" id="chat-jobs" aria-live="polite"></div>
       </section>
 
       <form class="composer" id="composer" autocomplete="off">
@@ -86,7 +90,7 @@
               </button>
               <div class="menu model-menu" id="model-menu" role="listbox" hidden></div>
             </div>
-            <button type="button" class="ghost dispatch-open" id="dispatch-open" hidden>分派给 Agent</button>
+            <button type="button" class="ghost handoff-open" id="handoff-open" hidden>交给项目</button>
             <button type="submit" class="send" id="send" aria-label="发送" disabled>
               <svg viewBox="0 0 20 20"><path d="M10 16V4M5 9l5-5 5 5"/></svg>
             </button>
@@ -166,35 +170,21 @@
       </div>
     </div>
 
-    <!-- coding -->
-    <div class="view page" id="view-code" hidden>
+    <!-- projects: the list, one project, one job (job.js) -->
+    <div class="view page" id="view-projects" hidden>
+      <div class="page-inner projects-page" id="projects-root"></div>
+      <div class="job-root" id="job-root" hidden></div>
+    </div>
+
+    <!-- discussions (admin): GPT and Claude discuss, the owner decides (discuss.js) -->
+    <div class="view page" id="view-discuss" hidden>
       <div class="page-inner">
         <div class="page-head">
-          <h1>写程序</h1>
-          <p>把编程任务交给 AI 团队。它们在这台电脑上写代码、跑检查，通过了才合并进项目。</p>
+          <h1>讨论</h1>
+          <p>GPT 和 Claude 先各自分析，再互相挑错，你来拍板。批准后由 Cowork 从 MAO 领取方案去开发。</p>
         </div>
-        <div class="notice" id="code-notice" hidden></div>
-        <form class="create-card" id="code-form" autocomplete="off">
-          <div class="field-row">
-            <label>项目<select name="project"></select></label>
-            <div class="seg-field"><span class="field-label">难度</span>
-              <div class="seg" role="radiogroup" aria-label="难度">
-                <label><input type="radio" name="difficulty" value="S" checked><span>简单</span></label>
-                <label><input type="radio" name="difficulty" value="M"><span>一般</span></label>
-                <label><input type="radio" name="difficulty" value="L"><span>复杂</span></label>
-              </div>
-            </div>
-          </div>
-          <label>要做什么<input name="title" placeholder="一句话说清楚，例如：给统计结果加一个导出 Excel 的按钮" required maxlength="200"></label>
-          <label>详细说明（可以不填）<textarea name="spec" rows="4" placeholder="要求、例子、注意事项……写得越清楚，做得越准"></textarea></label>
-          <details class="advanced">
-            <summary>验收命令（可以不填）</summary>
-            <label class="sub">每行一条，全部通过才算完成。不填就用项目里设好的检查。<textarea name="verify" rows="2" placeholder="python -m unittest"></textarea></label>
-          </details>
-          <div class="create-row"><span class="spacer"></span><button class="primary go" type="submit">交给 AI</button></div>
-        </form>
-        <div class="list-head"><h2>任务</h2></div>
-        <div class="jobs" id="code-jobs"></div>
+        <div class="notice" id="discuss-notice" hidden></div>
+        <div class="dsc" id="discuss-body"></div>
       </div>
     </div>
 
@@ -275,7 +265,7 @@
       <div class="page-inner">
         <div class="page-head">
           <h1>Agent</h1>
-          <p>每个 AI 助手在做什么、用了多少、最近成功率；可以暂停、恢复，或者把排队的任务换给另一个。</p>
+          <p>这台电脑上的 Claude Code 和 Codex 会话：什么时候用过、用了多少。旧的派活功能打开时，还能看到每个 agent 在做什么，并暂停或换人。</p>
         </div>
         <div class="notice" id="agents-notice" hidden></div>
         <div class="agents-body" id="agents-body"></div>
@@ -307,14 +297,16 @@
     <button class="tab active" data-tab="models" role="tab">聊天</button>
     <button class="tab" data-tab="media" role="tab">画图视频</button>
     <button class="tab" data-tab="people" role="tab">家人</button>
-    <button class="tab" data-tab="code" role="tab">写程序</button>
     <button class="tab" data-tab="remote" role="tab">外出</button>
+    <button class="tab" data-tab="notify" role="tab">手机提醒</button>
+    <button class="tab" data-tab="legacy" role="tab">旧功能</button>
   </div>
   <div class="tab-body" id="tab-models"></div>
   <div class="tab-body" id="tab-media" hidden></div>
   <div class="tab-body" id="tab-people" hidden></div>
-  <div class="tab-body" id="tab-code" hidden></div>
   <div class="tab-body" id="tab-remote" hidden></div>
+  <div class="tab-body" id="tab-notify" hidden></div>
+  <div class="tab-body" id="tab-legacy" hidden></div>
 </dialog>
 
 <dialog class="sheet small" id="password-dialog">
@@ -348,22 +340,32 @@
 </dialog>
 
 <div class="toast" id="toast" role="status" hidden></div>
-<dialog class="sheet" id="dispatch-dialog">
-  <form class="create-card" id="dispatch-form">
-    <h2>让 AI 分派并监督</h2>
-    <p class="small-note">AI 会结合当前讨论拆分任务，交给项目中配置的 Agent。执行会使用这些 Agent 的订阅额度或 API 余额。</p>
-    <label>在哪个项目里执行<select name="project" required></select></label>
-    <label>这次要完成什么<textarea name="goal" rows="5" maxlength="8000" required placeholder="确认讨论后的最终目标，可在这里补充或修改"></textarea></label>
-    <label>最多同时执行几个任务<select name="jobs"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></label>
-    <p class="small-note">AI 会分类任务、安排先后顺序。MAO 自动跟踪、验收，失败时按设置重试或换人；高风险成果仍按项目规则等待你确认合并。</p>
-    <p class="error" id="dispatch-error" role="alert"></p>
-    <div class="row-end"><button type="button" class="ghost" id="dispatch-cancel">取消</button>
-      <button type="submit" class="ghost" value="preview">先预览计划</button>
-      <button type="submit" class="primary" value="start">开始分派并监督</button></div>
+<dialog class="sheet handoff" id="handoff-dialog">
+  <form class="handoff-form" id="handoff-form" autocomplete="off">
+    <div class="sheet-head"><h2>交给项目</h2>
+      <button type="button" class="icon-btn" data-close aria-label="关闭"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button></div>
+    <div class="sheet-body">
+      <p class="small-note">AI 团队先商量出方案给你看，你同意了才动手。</p>
+      <label>交给哪个项目<select name="project" required></select></label>
+      <p class="small-note" id="handoff-why" hidden></p>
+      <label>这次要做什么？<textarea name="goal" rows="5" maxlength="8000" required placeholder="写清楚要做什么，例如：给计算器加上减法，并补上测试"></textarea></label>
+      <label class="check-row"><input type="checkbox" name="with_chat" checked><span>带上这次聊天里的讨论</span></label>
+      <fieldset class="stop-modes" id="handoff-stop"></fieldset>
+      <p class="error" id="handoff-error" role="alert"></p>
+      <div class="row-end"><button type="button" class="ghost" data-close>取消</button><button type="submit" class="primary">开始商量</button></div>
+    </div>
   </form>
+</dialog>
+
+<dialog class="sheet addproj" id="addproj-dialog">
+  <div class="sheet-head"><h2>添加项目</h2>
+    <button type="button" class="icon-btn" data-close aria-label="关闭"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button></div>
+  <div class="sheet-body" id="addproj-body"></div>
 </dialog>
 <script src="/i18n.js"></script>
 <script src="/app.js"></script>
-<script src="/dispatch.js"></script>
+<script src="/projects.js"></script>
+<script src="/job.js"></script>
+<script src="/discuss.js"></script>
 </body>
 </html>

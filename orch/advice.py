@@ -42,6 +42,9 @@ class Advice:
 
 def _route_key(cfg, task_type: str, difficulty: str) -> str:
     """The key in [routing] that decides this task's route (what an edit has to change)."""
+    from .config import route_type
+
+    task_type = route_type(cfg.data["routing"], task_type)
     by_type = cfg.data["routing"].get(task_type)
     if isinstance(by_type, dict):
         return f"{task_type}.{difficulty}" if difficulty in by_type else f"{task_type}.default"

@@ -16,6 +16,7 @@ import mimetypes
 import os
 import re
 import sys
+import traceback
 from contextlib import closing
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,15 +26,17 @@ from urllib.parse import quote, unquote, urlparse
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent))  # orch.llm lives next door
 
-from orch import llm  # noqa: E402
+from orch import legacy, llm, notify, notify_hook, watch  # noqa: E402
 from orch.context import estimate_tokens  # noqa: E402
 
 from . import agents as agent_page  # noqa: E402
-from .coding import Coding  # noqa: E402
-from .dispatch import Dispatch  # noqa: E402
+from .discuss import ADMIN_ONLY, UNKNOWN, Discussions  # noqa: E402
 from .docs import Docs  # noqa: E402
 from .db import DB, data_dir, get_media  # noqa: E402
+from .jobs import Jobs  # noqa: E402
+from .landing import Changed, Landing  # noqa: E402
 from .media import IMAGE_SIZES, VIDEO_RATIOS, Media, public  # noqa: E402
+from .projects import Projects  # noqa: E402
 from .providers import BY_ID, Registry  # noqa: E402
 from .remote import client_allowed, tailscale_ips  # noqa: E402
 from .subscription import Subscription  # noqa: E402
@@ -64,15 +67,19 @@ class App:
         self.db = DB(self.data / "web.db")
         self.keys = KeyStore(self.data / "keys.json")
         env = os.environ if environ is None else environ
+        self.environ = env                     # the legacy switch's env override is read from here
         self.subscription = Subscription(env, self.data / "claude-chat")
         self.registry = Registry(self.db, self.keys, env, self.subscription)
         self.allow_lan = False                 # set by --lan
         self.media = Media(self)
-        self.coding = Coding(self)
-        self.dispatch = Dispatch(self)
+        self.projects = Projects(self)         # before the jobs: they look projects up at startup
+        self.jobs = Jobs(self)
+        self.discussions = Discussions(self)   # GPT and Claude discuss, the owner decides (admin only)
+        self.landing = Landing(self)
         self.docs = Docs(self)
         self.media.resume()
         self.addresses: list[str] = []         # where the server listens (shown on the settings page)
+        self.notify_sender = None              # phone alerts: None = the real ntfy request (tests put a fake here)
 
     def history_for(self, cid: int, new_text: str) -> list[dict[str, str]]:
         """Minimum necessary context: newest messages first, until HISTORY_BUDGET is used up."""
@@ -99,6 +106,7 @@ class Handler(BaseHTTPRequestHandler):
     # -- helpers ------------------------------------------------------------------
     def _json(self, code: int, obj) -> None:
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self._started = True                    # from here on an error can only close the connection
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -234,7 +242,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _api(self, method: str, path: str) -> None:
-        self._set_cookies = []
+        self._set_cookies, self._started = [], False
         try:
             if method != "GET" and self.headers.get("X-MAO") != "1":
                 return self._json(403, {"error": "missing X-MAO header"})
@@ -256,14 +264,24 @@ class Handler(BaseHTTPRequestHandler):
                 ("POST", "/api/uploads"): self.api_upload,
                 ("POST", "/api/images"): self.api_image,
                 ("POST", "/api/videos"): self.api_video,
-                ("GET", "/api/code"): self.api_code,
-                ("POST", "/api/code/tasks"): self.api_code_task,
-                ("GET", "/api/dispatch"): self.api_dispatch,
-                ("POST", "/api/dispatch"): self.api_dispatch_submit,
-                ("POST", "/api/dispatch/action"): self.api_dispatch_action,
+                ("GET", "/api/projects"): self.api_projects,
+                ("GET", "/api/project"): self.api_project,
+                ("GET", "/api/jobs"): self.api_jobs,
+                ("POST", "/api/jobs"): self.api_job_submit,
+                ("GET", "/api/job"): self.api_job,
+                ("GET", "/api/job/run"): self.api_job_run,
+                ("GET", "/api/job/diff"): self.api_job_diff,
+                ("POST", "/api/job/action"): self.api_job_action,
+                ("POST", "/api/projects/land"): self.api_project_land,
                 ("GET", "/api/docs"): self.api_docs,
                 ("POST", "/api/docs"): self.api_doc_job,
                 ("POST", "/api/docs/upload"): self.api_doc_upload,
+                ("GET", "/api/discuss/options"): self.api_discuss_options,
+                ("GET", "/api/discussions"): self.api_discussions,
+                ("POST", "/api/discussions"): self.api_discussion_create,
+                ("GET", "/api/discussion"): self.api_discussion,
+                ("GET", "/api/discussion/raw"): self.api_discussion_raw,
+                ("POST", "/api/discussion/action"): self.api_discussion_action,
             }
             m = re.fullmatch(r"/api/docs/(\d+)", path)
             if m and method == "DELETE":
@@ -287,20 +305,44 @@ class Handler(BaseHTTPRequestHandler):
                          ("POST", "/api/admin/users"): self.admin_users,
                          ("POST", "/api/admin/media-models"): self.admin_media_models,
                          ("POST", "/api/admin/projects"): self.admin_projects,
+                         ("POST", "/api/admin/projects/check"): self.admin_project_check,
+                         ("POST", "/api/admin/projects/add"): self.admin_project_add,
+                         ("POST", "/api/admin/projects/rename"): self.admin_project_rename,
+                         ("POST", "/api/admin/projects/remove"): self.admin_project_remove,
+                         ("GET", "/api/admin/folders"): self.admin_folders,
                          ("GET", "/api/admin/agents"): self.admin_agents,
-                         ("POST", "/api/admin/agents"): self.admin_agent_action}
+                         ("POST", "/api/admin/agents"): self.admin_agent_action,
+                         ("GET", "/api/admin/legacy"): self.admin_legacy,
+                         ("POST", "/api/admin/legacy"): self.admin_legacy_set,
+                         ("POST", "/api/admin/projects/link"): self.admin_project_link,
+                         ("GET", "/api/admin/notify"): self.admin_notify,
+                         ("POST", "/api/admin/notify"): self.admin_notify_set}
                 if (method, path) in admin:
                     return admin[(method, path)](user)
             return self._json(404, {"error": "not found"})
         except (ValueError, KeyError, json.JSONDecodeError) as e:
             return self._json(400, {"error": str(e)})
+        except Exception as e:  # never drop the connection without an answer
+            traceback.print_exc()
+            if getattr(self, "_started", False):
+                self.close_connection = True
+                return
+            try:
+                self._json(500, {"error": f"MAO 内部出错了，请稍后再试（{type(e).__name__}）"})
+            except OSError:
+                self.close_connection = True
 
     # -- open routes --------------------------------------------------------------
     def api_state(self) -> None:
         user = self._user()
+        dispatch = self._dispatch()
+        can_code = bool(user and dispatch and (user["is_admin"] or user["can_code"]))
         self._json(200, {"needs_setup": self.app.db.user_count() == 0,
                          "user": {"name": user["name"], "display": user["display"], "admin": bool(user["is_admin"]),
-                                  "can_code": bool(user["is_admin"] or user["can_code"])}
+                                  "can_code": can_code, "dispatch": dispatch,
+                                  "waiting": self.app.jobs.waiting_count(user) if can_code else 0,
+                                  # discussions waiting for the admin (the 讨论 badge; 项目 keeps `waiting`)
+                                  "discuss_waiting": self.app.discussions.waiting_count() if user["is_admin"] else 0}
                          if user else None})
 
     def api_setup(self) -> None:
@@ -394,6 +436,7 @@ class Handler(BaseHTTPRequestHandler):
         self.app.db.add_message(cid, "user", text, model_id)
         self.app.db.set_setting(f"last_model.{user['id']}", model_id)
 
+        self._started = True
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -479,47 +522,132 @@ class Handler(BaseHTTPRequestHandler):
         self.app.db.x("DELETE FROM media WHERE id=?", (mid,))
         self._json(200, {"ok": True})
 
-    # -- coding ---------------------------------------------------------------------
+    # -- projects and jobs (the old dispatch: only while the legacy switch is on) -------------------------------
+    def _dispatch(self) -> bool:
+        return legacy.enabled(self.app.data, self.app.environ)
+
+    def _legacy_off(self) -> bool:
+        """409 while the old dispatch is switched off (True when it answered)."""
+        if self._dispatch():
+            return False
+        self._json(409, {"error": legacy.WEB_OFF, "code": "legacy_off"})
+        return True
+
     def _can_code(self, user) -> bool:
         return bool(user["is_admin"] or user["can_code"])
 
-    def api_code(self, user) -> None:
-        if not self._can_code(user):
-            return self._json(200, {"allowed": False, "projects": [], "jobs": []})
-        self._json(200, {"allowed": True, "projects": [p["name"] for p in self.app.coding.projects()],
-                         "jobs": self.app.coding.jobs(None if user["is_admin"] else user["id"])})
+    def _refused(self, user) -> bool:
+        """409 while the old dispatch is off, else 403 unless the admin lets this person give work to the agents."""
+        if self._legacy_off():
+            return True
+        if self._can_code(user):
+            return False
+        self._json(403, {"error": "管理员还没有允许你派写程序的任务"})
+        return True
 
-    def api_code_task(self, user) -> None:
-        if not self._can_code(user):
-            return self._json(403, {"error": "管理员还没有允许你派写程序的任务"})
-        b = self._body()
-        verify = [v for v in str(b.get("verify", "")).splitlines() if v.strip()]
-        jid = self.app.coding.submit(user["id"], str(b.get("project", "")), str(b.get("title", "")),
-                                     str(b.get("spec", "")), str(b.get("difficulty", "S")), verify)
-        self._json(200, {"job_id": jid})
-
-    def api_dispatch(self, user) -> None:
-        if not self._can_code(user):
-            return self._json(403, {"error": "管理员还没有允许你派写程序的任务"})
+    def _query(self) -> dict[str, str]:
         from urllib.parse import parse_qs
-        cid = int(parse_qs(urlparse(self.path).query).get("conversation_id", ["0"])[0])
+
+        return {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+
+    @staticmethod
+    def _id(value, missing: str) -> int:
+        """A record id from the query or body; anything that is not a number is a record that does not exist."""
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            raise ValueError(missing) from None
+
+    def api_projects(self, user) -> None:
+        if not self._refused(user):
+            self._json(200, {"can_add": bool(user["is_admin"]), "projects": self.app.jobs.cards(user)})
+
+    def api_project(self, user) -> None:
+        if not self._refused(user):
+            self._json(200, self.app.jobs.project_page(user, self._id(self._query().get("id"), "没有这个项目")))
+
+    def api_jobs(self, user) -> None:
+        if self._refused(user):
+            return
+        cid = self._id(self._query().get("conversation_id"), "没有这个对话")
         if not self.app.db.conversation(user["id"], cid):
             return self._json(404, {"error": "没有这个对话"})
-        self._json(200, {"jobs": self.app.dispatch.snapshots(user["id"], cid)})
+        self._json(200, {"jobs": self.app.jobs.for_conversation(user, cid)})
 
-    def api_dispatch_submit(self, user) -> None:
-        if not self._can_code(user):
-            return self._json(403, {"error": "管理员还没有允许你派写程序的任务"})
-        b = self._body()
-        jid = self.app.dispatch.submit(user["id"], b)
-        self._json(200, {"job_id": jid})
+    def api_job_submit(self, user) -> None:
+        if not self._refused(user):
+            self._json(200, {"job_id": self.app.jobs.submit(user, self._body())})
 
-    def api_dispatch_action(self, user) -> None:
-        if not self._can_code(user):
-            return self._json(403, {"error": "管理员还没有允许你派写程序的任务"})
+    def api_job(self, user) -> None:
+        if not self._refused(user):
+            q = self._query()
+            self._json(200, self.app.jobs.view(user, self._id(q.get("id"), "没有这个任务"), q.get("sig", "")))
+
+    def api_job_run(self, user) -> None:
+        if not self._refused(user):
+            q = self._query()
+            self._json(200, self.app.jobs.run_detail(user, self._id(q.get("id"), "没有这个任务"), q.get("run", "")))
+
+    def api_job_diff(self, user) -> None:
+        if not self._refused(user):
+            q = self._query()
+            self._json(200, self.app.jobs.diff(user, self._id(q.get("id"), "没有这个任务"), q.get("task", "")))
+
+    def api_job_action(self, user) -> None:
+        if self._refused(user):
+            return
         b = self._body()
-        self.app.dispatch.action(user["id"], int(b.get("job_id") or 0), str(b.get("action") or ""), str(b.get("task_id") or ""))
-        self._json(200, {"ok": True})
+        jid = self._id(b.get("job_id"), "没有这个任务")
+        self._json(200, self.app.jobs.action(user, jid, str(b.get("action") or ""), str(b.get("task_id") or ""),
+                                             str(b.get("text") or "")))
+
+    def api_project_land(self, user) -> None:
+        if not self._refused(user):
+            b = self._body()
+            pid = self._id(b.get("project_id"), "没有这个项目")
+            try:
+                self._json(200, self.app.landing.land(user, pid, str(b.get("sha") or "")))
+            except Changed as e:   # the list the user agreed to is not what would land now: the new one with it
+                self._json(400, {"error": str(e), "land": e.land})
+
+    # -- discussions (admin only): GPT and Claude discuss, the owner decides, Cowork takes the brief ----------------
+    def _admin_only(self, user) -> bool:
+        """403 unless this is the admin (discussions spend the owner's own Max and ChatGPT quota)."""
+        if user["is_admin"]:
+            return False
+        self._json(403, {"error": ADMIN_ONLY})
+        return True
+
+    def api_discuss_options(self, user) -> None:
+        if not self._admin_only(user):
+            self._json(200, self.app.discussions.options(user))
+
+    def api_discussions(self, user) -> None:
+        if not self._admin_only(user):
+            self._json(200, {"discussions": self.app.discussions.list(user)})
+
+    def api_discussion_create(self, user) -> None:
+        if not self._admin_only(user):
+            self._json(200, self.app.discussions.create(user, self._body()))
+
+    def api_discussion(self, user) -> None:
+        if not self._admin_only(user):
+            q = self._query()
+            self._json(200, self.app.discussions.view(user, q.get("did", ""), q.get("sig", "")))
+
+    def api_discussion_raw(self, user) -> None:
+        if not self._admin_only(user):
+            q = self._query()
+            self._json(200, self.app.discussions.raw(user, q.get("did", ""), q.get("turn", ""),
+                                                     q.get("repair", "0") not in ("", "0", "false")))
+
+    def api_discussion_action(self, user) -> None:
+        if self._admin_only(user):
+            return
+        b = self._body()
+        self._json(200, self.app.discussions.action(user, str(b.get("did") or ""), str(b.get("action") or ""),
+                                                    str(b.get("text") or ""), str(b.get("kind") or ""),
+                                                    str(b.get("ref") or "")))
 
     # -- documents ------------------------------------------------------------------
     def api_docs(self, user) -> None:
@@ -541,17 +669,61 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- admin --------------------------------------------------------------------
     def admin_agents(self, user) -> None:
-        self._json(200, agent_page.overview(self.app))
+        self._json(200, agent_page.overview(self.app, dispatch=self._dispatch()))
 
     def admin_agent_action(self, user) -> None:
-        self._json(200, {"ok": True, "message": agent_page.act(self.app, self._body())})
+        if not self._legacy_off():
+            self._json(200, {"ok": True, "message": agent_page.act(self.app, self._body())})
+
+    def _legacy_payload(self) -> dict:
+        st = legacy.state(self.app.data, self.app.environ)
+        return {"enabled": st["enabled"], "source": st["source"], "env": legacy.ENV,
+                "active_jobs": self.app.jobs.active_count()}
+
+    def admin_legacy(self, user) -> None:
+        self._json(200, self._legacy_payload())
+
+    def admin_legacy_set(self, user) -> None:
+        on = self._body().get("enabled")
+        if not isinstance(on, bool):
+            raise ValueError("bad body")
+        legacy.set_enabled(on, self.app.data, self.app.environ, by="web")   # ENV_LOCKED: a 400
+        self._json(200, self._legacy_payload())
+
+    # -- phone alerts (orch/notify.py): ntfy, read-only; the topic is made on the first look -----------------
+    def _notify_payload(self) -> dict:
+        notify.ensure_topic(self.app.data)
+        out = notify.public(self.app.data)
+        out["hook"] = {"state": notify_hook.status(data=self.app.data)}
+        out["watcher"] = dict(watch.STATE)
+        return out
+
+    def admin_notify(self, user) -> None:
+        self._json(200, self._notify_payload())
+
+    def admin_notify_set(self, user) -> None:
+        b = self._body()
+        action, data, extra = b.get("action"), self.app.data, {}
+        if action == "save":
+            notify.save({k: b[k] for k in ("enabled", "server", "lang", "events", "thresholds") if k in b}, data)
+        elif action == "new_topic":   # the phone has to subscribe again (the page says so)
+            notify.save({"topic": notify.new_topic()}, data)
+        elif action == "token":
+            notify.set_token(str(b.get("token") or ""), data)
+        elif action == "test":        # a failed send is still a 200, as with admin_test
+            extra["test"] = notify.send_test(data, sender=self.app.notify_sender, via="web")
+        elif action in ("hook_install", "hook_uninstall"):
+            r = notify_hook.install(data=data) if action == "hook_install" else notify_hook.uninstall()
+            extra["hook_result"] = {"changed": r["changed"], "backup": Path(r["backup"]).name if r["backup"] else ""}
+        else:
+            raise ValueError(UNKNOWN)
+        self._json(200, {**self._notify_payload(), **extra, "ok": True})
 
     def admin_settings(self, user) -> None:
         self._json(200, {"providers": self.app.registry.describe(),
                          "users": [dict(u) for u in self.app.db.users()],
                          "default_model": self.app.db.setting("default_model"),
-                         "image_models": self.app.media.models("image"), "video_models": self.app.media.models("video"),
-                         "projects": self.app.coding.projects()})
+                         "image_models": self.app.media.models("image"), "video_models": self.app.media.models("video")})
 
     def admin_media_models(self, user) -> None:
         b = self._body()
@@ -563,8 +735,43 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"ok": True, "models": models[:20]})
 
     def admin_projects(self, user) -> None:
-        items = self._body().get("projects", [])
-        self._json(200, {"ok": True, "projects": self.app.coding.set_projects(items if isinstance(items, list) else [])})
+        if not self._legacy_off():
+            self._json(200, {"ok": True, "projects": self.app.projects.set_all(self._body().get("projects"))})
+
+    def admin_project_check(self, user) -> None:
+        if not self._legacy_off():
+            self._json(200, self.app.projects.check(str(self._body().get("path") or "")))
+
+    def admin_project_add(self, user) -> None:
+        if self._legacy_off():
+            return
+        b = self._body()
+        self._json(200, {"project": self.app.projects.add(
+            str(b.get("path") or ""), str(b.get("name") or ""), create=bool(b.get("create")),
+            commit_changes=bool(b.get("commit_changes")), lang=str(b.get("lang") or "zh"))})
+
+    def admin_project_link(self, user) -> None:
+        """Register a folder for discussions only: no git, no .agents, nothing written into it (works while the
+        old dispatch is off)."""
+        b = self._body()
+        self._json(200, {"project": self.app.projects.link(str(b.get("path") or ""), str(b.get("name") or ""))})
+
+    def admin_project_rename(self, user) -> None:
+        b = self._body()
+        self.app.projects.rename(b.get("id"), str(b.get("name") or ""))
+        self._json(200, {"ok": True})
+
+    def admin_project_remove(self, user) -> None:
+        self.app.projects.remove(self._body().get("id"))
+        self._json(200, {"ok": True})
+
+    def admin_folders(self, user) -> None:
+        from urllib.parse import parse_qs
+
+        if self._legacy_off():   # only the 添加项目 sheet uses the folder browser
+            return
+        q = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+        self._json(200, self.app.projects.browse(q.get("path", [""])[0]))
 
     def admin_remote(self, user) -> None:
         port = self.server.server_address[1]
@@ -639,11 +846,50 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"ok": True, "users": [dict(u) for u in self.app.db.users()]})
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    # On Windows SO_REUSEADDR lets a second program bind a port that is in use: there a busy port stays busy
+    allow_reuse_address = os.name != "nt"
+
+
 def make_server(host: str = "127.0.0.1", port: int = 8848, app: App | None = None) -> ThreadingHTTPServer:
     handler = type("BoundHandler", (Handler,), {"app": app or App()})
-    server = ThreadingHTTPServer((host, port), handler)
-    server.daemon_threads = True
-    return server
+    return Server((host, port), handler)
+
+
+def hold_instance_lock(data: Path):
+    """One MAO per data folder: a second one would take over the jobs the first is running. Returns the open lock
+    file (kept for the life of the process; the system lets go of it however the process ends), or None when
+    another MAO holds it."""
+    data.mkdir(parents=True, exist_ok=True)
+    f = open(data / "server.lock", "a+b")
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        f.close()
+        return None
+    return f
+
+
+def start_watcher(app: App, interval: float = 60.0):
+    """Phone alerts: the web app's one always-on watcher thread (orch/watch.py, named mao-watch). While alerts are off
+    it is idle (a look every minute reads notify.json, pushes and writes nothing); it catches every error itself, and
+    pushes through app.notify_sender as it is now (None = the real ntfy request). Returns (thread, stop event), or None when the
+    thread could not start: the web app then runs on without phone alerts' checks. Never called by App()."""
+    try:
+        return watch.start_thread(app.data, rows_fn=app.discussions.watch_rows, store=app.discussions.store,
+                                  sender=app.notify_sender, interval=interval)
+    except Exception as e:  # noqa: BLE001  (phone alerts must never stop the web app)
+        print(f"手机提醒的后台检查没有启动（{type(e).__name__}: {e}），网页版照常可用。", file=sys.stderr)
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -672,16 +918,24 @@ def main(argv: list[str] | None = None) -> int:
     for h in args.host or []:
         if h not in hosts:
             hosts.append(h)
-    app = App()
-    app.allow_lan = args.lan
+    instance = hold_instance_lock(data_dir())   # before anything touches the jobs of a MAO that may be running
+    if instance is None:
+        print(f"已经有一个 MAO 在运行（数据在 {data_dir()}）。不用再打开一次：直接在浏览器里打开 "
+              f"http://127.0.0.1:{args.port}/ ；要重新启动，先关掉原来那个窗口。")
+        return 1
+    handler = type("BoundHandler", (Handler,), {})
     servers = []
-    for h in hosts:
+    for h in hosts:   # the ports first: a failed start must not have touched anything
         try:
-            servers.append(make_server(h, args.port, app))
+            servers.append(Server((h, args.port), handler))
         except OSError as e:
             print(f"无法在 {h}:{args.port} 监听（{e}）")
     if not servers:
+        instance.close()
         return 1
+    app = handler.app = App()
+    app.allow_lan = args.lan
+    watcher = start_watcher(app)
     app.addresses = [s.server_address[0] for s in servers]
     for srv in servers[1:]:
         threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.5}, daemon=True).start()
@@ -698,6 +952,9 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        if watcher:
+            watcher[1].set()
         for srv in servers:
             srv.server_close()
+        instance.close()
     return 0

@@ -58,7 +58,9 @@ def key_list() -> list[str]:
     return out
 
 
-def status(cfg: Config) -> list[str]:
+def status(cfg: Config, dispatch: bool = True) -> list[str]:
+    """What can be used now. dispatch=False (the old task dispatch is off): no pointer to `orch connect PROVIDER`,
+    which is refused while it is off."""
     lines = [tr("Coding agents (they edit files and run commands in a task's own worktree):")]
     for cmd, name, account, install in CLIS:
         path = resolve_command(cfg.executor_cfg({"claude": "claude_code"}.get(cmd, cmd)).get("command", cmd))
@@ -70,7 +72,8 @@ def status(cfg: Config) -> list[str]:
         pools = [name for name, pc in cfg.pools.items()
                  if pc.get("provider") == p.id or (p.opencode_model and pc.get("model") == p.opencode_model)
                  or pc.get("base_url", "").rstrip("/") == p.base_url.rstrip("/")]
-        used = tr("pools: {0}", ", ".join(pools)) if pools else tr("not used yet  ->  orch connect {0}", p.id)
+        used = (tr("pools: {0}", ", ".join(pools)) if pools
+                else tr("not used yet  ->  orch connect {0}", p.id) if dispatch else tr("not used yet"))
         lines.append(tr("  {0:<10} key {1:<8} {2}", p.id, tr("set") if source != "none" else tr("missing"), used))
     lines += ["", tr("Keys: orch key set <provider> (or the provider's environment variable). opencode can also keep"),
               tr("its own login (opencode auth login); a pool works with either.")]

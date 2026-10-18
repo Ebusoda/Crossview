@@ -18,7 +18,8 @@ async function api(path, opts = {}) {
   } catch (err) { if (err.name === "AbortError") throw err; throw new Error(OFFLINE); }
   if (res.status === 401 && !opts.allow401) { showAuth(false); throw new Error("请先登录"); }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `出错了（${res.status}）`);
+  if (res.status === 409 && data.code === "legacy_off" && state.user) refreshBadge();   // the old dispatch went off meanwhile
+  if (!res.ok) { const e = new Error(data.error || `出错了（${res.status}）`); e.data = data; throw e; }   // data: what else the answer says
   return data;
 }
 
@@ -105,12 +106,41 @@ async function enterApp() {
   const name = state.user.display || state.user.name;
   $("#user-name").textContent = name;
   $("#avatar").textContent = name.slice(0, 1).toUpperCase();
-  $("#menu-settings").hidden = !state.user.admin;
-  $("#nav-code").hidden = !state.user.can_code;
-  $("#nav-agents").hidden = !state.user.admin;
+  applyRole();
   setGreeting();
   await Promise.all([loadModels(), loadConvs()]);
   route();
+}
+
+// what this person sees: the admin's pages, and 项目 / 交给项目 only while the old dispatch is on (the server says so
+// through can_code)
+function applyRole() {
+  $("#menu-settings").hidden = !state.user.admin;
+  $("#nav-projects").hidden = !state.user.can_code;
+  $("#handoff-open").hidden = !state.user.can_code;
+  $("#nav-agents").hidden = !state.user.admin;
+  $("#nav-discuss").hidden = !state.user.admin;
+  setBadge(state.user.waiting, state.user.discuss_waiting);
+}
+
+// the legacy switch (or this member's 项目 permission) changed while the page is open
+function roleChanged() {
+  applyRole();
+  if (state.view === "projects" && !state.user.can_code) {
+    history.replaceState(null, "", state.convId ? `#${state.convId}` : location.pathname);
+    showView("chat");
+  }
+  if (state.view === "chat") MAOProjects.chat();   // the project cards under the conversation come or go
+  refreshPeople();                                 // 家人's 项目 switches follow the old dispatch
+}
+
+// redraw 家人 while the settings dialog is open (what the admin was typing into 添加家庭成员 is kept)
+async function refreshPeople() {
+  if (!state.user.admin || !$("#settings").open) return;
+  const box = $("#tab-people");
+  const typed = [...box.querySelectorAll("input[name]")].map((i) => [i.name, i.value]);
+  try { renderPeople((await api("/api/admin/settings")).users); } catch { return; }   // keep the list as it was
+  for (const [n, v] of typed) { const i = box.querySelector(`input[name="${n}"]`); if (i) i.value = v; }
 }
 
 function setGreeting() {
@@ -192,7 +222,7 @@ function newChat() {
   state.convId = null; history.replaceState(null, "", location.pathname);
   $("#messages").innerHTML = ""; $("#conv-title").textContent = "";
   $("#app").classList.remove("has-thread");
-  renderConvs(); $("#input").focus();
+  renderConvs(); MAOProjects.chat(); $("#input").focus();
 }
 $("#new-chat").onclick = () => { newChat(); closeSidebar(); };
 
@@ -206,7 +236,7 @@ async function openConv(id) {
     for (const m of d.messages) addMessage(m.role, m.content, m.model);
     $("#app").classList.toggle("has-thread", d.messages.length > 0);
     if (d.conversation.model && state.models.some((x) => x.id === d.conversation.model)) setModel(d.conversation.model);
-    renderConvs(); scrollDown(true);
+    renderConvs(); MAOProjects.chat(); scrollDown(true);
   } catch (err) { toast(err.message); newChat(); }
 }
 
@@ -302,7 +332,7 @@ async function send(text) {
   } finally {
     el.classList.remove("cursor"); el.dataset.raw = raw;
     if (raw) appendMeta(el, state.model); else el.remove();
-    state.streaming = null; updateSend(); scrollDown();
+    state.streaming = null; updateSend(); scrollDown(); MAOProjects.chat();
     if (isNew) { await loadConvs(); const c = state.convs.find((x) => x.id === state.convId); if (c) $("#conv-title").textContent = c.title; }
     input.focus();
   }
@@ -337,6 +367,8 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x.dataset.tab === name));
   document.querySelectorAll("#settings .tab-body").forEach((b) => (b.hidden = b.id !== `tab-${name}`));
   if (name === "remote") renderRemote();
+  if (name === "notify") renderNotify();
+  if (name === "legacy") renderLegacy();
 }
 document.querySelectorAll(".tab").forEach((t) => t.onclick = () => showTab(t.dataset.tab));
 
@@ -345,7 +377,7 @@ async function openSettings(tab = "models") {
   try {
     const d = await api("/api/admin/settings");
     renderProviders(d.providers); renderPeople(d.users);
-    renderMediaModels(d.image_models, d.video_models); renderProjects(d.projects);
+    renderMediaModels(d.image_models, d.video_models);
   } catch (err) { return toast(err.message); }
   showTab(tab);
   $("#settings").showModal();
@@ -442,7 +474,7 @@ function renderPeople(users) {
     const row = document.createElement("div"); row.className = "person";
     row.innerHTML = `<span class="avatar">${esc((u.display || u.name).slice(0, 1).toUpperCase())}</span>
       <span class="name"><span class="p-display">${esc(u.display || u.name)}</span><small>${esc(u.name)}${u.is_admin ? " · 管理员" : ""}</small></span>
-      ${u.is_admin ? "" : `<label class="switch" title="可以派写程序的任务"><input type="checkbox" data-a="code" ${u.can_code ? "checked" : ""}><span>写程序</span></label>`}
+      ${u.is_admin || !state.user.dispatch ? "" : `<label class="switch" title="可以让 AI 在项目里写程序"><input type="checkbox" data-a="code" ${u.can_code ? "checked" : ""}><span>项目</span></label>`}
       <button class="ghost" data-a="reset">重设密码</button>${u.name === state.user.name ? "" : '<button class="ghost" data-a="delete">删除</button>'}`;
     row.onclick = async (e) => {
       const a = e.target.dataset.a; if (!a) return;
@@ -450,7 +482,7 @@ function renderPeople(users) {
         if (a === "reset") { const pw = prompt(`给 ${u.display || u.name} 设一个新密码（至少 8 位）`); if (!pw) return;
           await api("/api/admin/users", { method: "POST", body: { action: "reset", id: u.id, password: pw } }); toast("密码已重设"); }
         if (a === "code") { await api("/api/admin/users", { method: "POST", body: { action: "can_code", id: u.id, value: e.target.checked } });
-          toast(e.target.checked ? `${u.display || u.name} 现在可以写程序了` : "已关闭写程序权限"); }
+          toast(e.target.checked ? `${u.display || u.name} 现在可以用项目了` : "已关闭项目权限"); }
         if (a === "delete") { if (!confirm(`删除 ${u.display || u.name} 的账号和全部对话？`)) return;
           const d = await api("/api/admin/users", { method: "POST", body: { action: "delete", id: u.id } }); renderPeople(d.users); }
       } catch (err) { toast(err.message); }
@@ -467,15 +499,17 @@ function renderPeople(users) {
 
 window.addEventListener("hashchange", () => { if (state.user) route(); });
 
-// ---- views: chat · pictures · video · coding ----------------------------------------
-const VIEW_NAMES = { chat: "", image: "画图", video: "视频", docs: "文档", code: "写程序", agents: "Agent" };
+// ---- views: chat · pictures · video · documents · projects · agents ----------------------
+const VIEW_NAMES = { chat: "", image: "画图", video: "视频", docs: "文档", projects: "项目", discuss: "讨论", agents: "Agent" };
 state.view = "chat";
 state.creative = null;     // models, sizes, ratios, whether the Ark key is set
 state.source = { image: null, video: null };   // the photo a picture edit / video starts from
-let pollTimer = null;
+let pollTimer = null, pollLater = null;
 
 function route() {
-  const h = location.hash.slice(1);
+  const h = location.hash.slice(1), base = h.split("/")[0];
+  if (base === "projects") return showView("projects", true);   // #projects, #projects/<id>, #projects/<id>/<job>
+  if (base === "discuss") return showView("discuss", true);     // #discuss, #discuss/new, #discuss/DS-0003
   if (VIEW_NAMES[h] !== undefined && h !== "chat") return showView(h);
   const id = Number(h);
   if (id) { if (id !== state.convId || state.view !== "chat") openConv(id); }
@@ -483,9 +517,12 @@ function route() {
 }
 
 function showView(name, refresh) {
-  if (name === "code" && !state.user.can_code) name = "chat";
+  if (name === "projects" && !state.user.can_code) name = "chat";
   if (name === "agents" && !state.user.admin) name = "chat";
+  if (name === "discuss" && !state.user.admin) name = "chat";
   const changed = state.view !== name;
+  if (name !== "projects") MAOProjects.leave();
+  if (name !== "discuss") MAODiscuss.leave();
   state.view = name;
   for (const v of Object.keys(VIEW_NAMES)) $(`#view-${v}`).hidden = v !== name;
   document.querySelectorAll("#views-nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
@@ -493,7 +530,7 @@ function showView(name, refresh) {
   $("#side-fill").hidden = name === "chat";
   if (name !== "chat") {
     $("#conv-title").textContent = VIEW_NAMES[name];
-    if (location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
+    if (!location.hash.startsWith(`#${name}/`) && location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
   }
   $("#app").dataset.view = name;
   if (name !== "chat" && (changed || refresh)) loadView(name);
@@ -502,24 +539,55 @@ function showView(name, refresh) {
 document.querySelectorAll("#views-nav button").forEach((b) => b.onclick = () => {
   closeSidebar();
   if (b.dataset.view === "chat") return state.convId ? openConv(state.convId) : newChat();
+  if (b.dataset.view === "projects" && location.hash !== "#projects") { location.hash = "#projects"; return; }   // the list (back works)
+  if (b.dataset.view === "discuss" && location.hash !== "#discuss") { location.hash = "#discuss"; return; }
   showView(b.dataset.view);
 });
 
 async function loadView(name) {
   try {
     if (name === "image" || name === "video") { await loadCreative(); await loadMedia(name); }
-    if (name === "code") await loadCode(true);
+    if (name === "projects") await MAOProjects.load();
+    if (name === "discuss") await MAODiscuss.load();
     if (name === "docs") await loadDocs(true);
     if (name === "agents") await loadAgents();
   } catch (err) { toast(err.message); }
 }
 
-const POLL = { code: () => loadCode(false), docs: () => loadDocs(false), agents: () => loadAgents() };
+const POLL = { projects: () => MAOProjects.poll(), discuss: () => MAODiscuss.poll(), docs: () => loadDocs(false), agents: () => loadAgents() };
+// One view polls at a time. A hidden tab does not poll; it polls once when it is shown again.
 function schedulePoll(name, needed, ms = 4000) {
-  clearTimeout(pollTimer);
+  clearTimeout(pollTimer); pollLater = null;
   if (needed && state.view === name)
-    pollTimer = setTimeout(() => (POLL[name] ? POLL[name]() : loadMedia(name)).catch(() => schedulePoll(name, true, ms)), ms);
+    pollTimer = setTimeout(() => { if (document.hidden) pollLater = [name, ms]; else runPoll(name, ms); }, ms);
 }
+function runPoll(name, ms) { (POLL[name] ? POLL[name]() : loadMedia(name)).catch(() => schedulePoll(name, true, ms)); }
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !pollLater) return;
+  const [name, ms] = pollLater; pollLater = null;
+  if (state.view === name) runPoll(name, ms);
+});
+
+// what waits for the user's decision: jobs on 项目, discussions on 讨论 (admin), their sum on the phone's menu button
+// and in the tab title
+function setBadge(jobs, discuss = 0) {
+  jobs = Number(jobs) || 0; discuss = Number(discuss) || 0;
+  const show = (id, n) => { const el = $(id); el.textContent = n > 9 ? "9+" : String(n); el.hidden = !n; el.setAttribute("aria-label", `${n} 件等你决定`); };
+  show("#nav-badge", jobs); show("#nav-discuss-badge", discuss); show("#menu-badge", jobs + discuss);
+  document.title = (jobs + discuss ? `(${jobs + discuss}) ` : "") + "MAO";
+}
+async function refreshBadge() {
+  if (!state.user) return;
+  try {
+    const s = await api("/api/state", { allow401: true });
+    if (!s.user || !state.user) return;
+    const changed = s.user.dispatch !== state.user.dispatch || s.user.can_code !== state.user.can_code;   // e.g. orch legacy on
+    Object.assign(state.user, { waiting: s.user.waiting, discuss_waiting: s.user.discuss_waiting,
+                                dispatch: s.user.dispatch, can_code: s.user.can_code });
+    if (changed) roleChanged(); else setBadge(s.user.waiting, s.user.discuss_waiting);
+  } catch { /* offline: keep the old number */ }
+}
+setInterval(() => { if (!document.hidden && !(state.view === "projects" && MAOProjects.polling())) refreshBadge(); }, 30000);
 
 $("#starters").onclick = (e) => {
   const b = e.target.closest("button"); if (!b) return;
@@ -748,66 +816,7 @@ $("#video-pick").onclick = async () => {
   } catch (err) { grid.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
 };
 
-// ---- coding ---------------------------------------------------------------------------
-const JOB_STATUS = { queued: ["排队中", ""], running: ["进行中", "run"], done: ["完成", "on"], failed: ["没有完成", "bad"] };
-const TASK_STATUS = { queued: "等待开始", running: "AI 正在写", verified: "检查通过", merged: "已合并进项目", failed: "失败",
-                      blocked: "卡住了，需要人看一下", cancelled: "已取消" };
-state.codeProjects = null;
-
-async function loadCode(first) {
-  const d = await api("/api/code");
-  const note = $("#code-notice"), form = $("#code-form");
-  let msg = "";
-  if (!d.allowed) msg = "管理员还没有允许你派写程序的任务。";
-  else if (!d.projects.length) msg = state.user.admin
-    ? '还没有登记项目。请在 <a href="#" data-settings="code">设置 · 写程序</a> 里登记一个 orch 项目。' : "管理员还没有登记可以写程序的项目。";
-  note.innerHTML = msg; note.hidden = !msg; form.hidden = !d.allowed || !d.projects.length;
-  note.querySelectorAll("[data-settings]").forEach((a) => a.onclick = (e) => { e.preventDefault(); openSettings(a.dataset.settings); });
-  if (first || JSON.stringify(d.projects) !== JSON.stringify(state.codeProjects)) {
-    state.codeProjects = d.projects;
-    fillSelect(form.elements.project, d.projects, null, true);
-  }
-  renderJobs(d.jobs);
-  schedulePoll("code", d.jobs.some((j) => j.status === "queued" || j.status === "running"));
-}
-
-function renderJobs(jobs) {
-  const box = $("#code-jobs");
-  const open = new Set([...box.querySelectorAll("details[open]")].map((x) => x.dataset.id));
-  box.innerHTML = jobs.length ? "" : '<div class="empty">还没有任务。</div>';
-  for (const j of jobs) {
-    const [label, cls] = JOB_STATUS[j.status] || [j.status, ""];
-    const card = document.createElement("div"); card.className = "job";
-    const detail = j.task_status ? (TASK_STATUS[j.task_status] || j.task_status) : "";
-    const runs = (j.runs || []).map((r) => `${esc(r.pool)}${r.verified ? " ✓" : r.status === "running" ? "" : " ✗"}`).join(" → ");
-    card.innerHTML = `
-      <div class="job-head"><span class="badge ${cls}">${cls === "run" ? '<span class="spinner small"></span>' : ""}${label}</span>
-        <h3>${esc(j.title)}</h3></div>
-      <p class="job-meta">${esc(j.project)}${j.task_id ? ` · ${esc(j.task_id)}` : ""} · ${ago(j.created_at)}${detail ? ` · ${esc(detail)}` : ""}</p>
-      ${runs ? `<p class="job-meta">经手的模型：${runs}</p>` : ""}
-      ${j.note && j.status === "failed" ? `<p class="job-note">${esc(j.note)}</p>` : ""}
-      ${j.log ? `<details data-id="${j.id}"${open.has(String(j.id)) ? " open" : ""}><summary>查看过程记录</summary><pre>${esc(j.log)}</pre></details>` : ""}`;
-    box.appendChild(card);
-  }
-}
-
-$("#code-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const f = e.target, go = f.querySelector(".go");
-  const body = { project: f.elements.project.value, title: f.elements.title.value.trim(), spec: f.elements.spec.value,
-                 difficulty: f.elements.difficulty.value, verify: f.elements.verify.value };
-  if (!body.title) return f.elements.title.focus();
-  go.disabled = true; go.textContent = "正在提交…";
-  try {
-    await api("/api/code/tasks", { method: "POST", body });
-    f.elements.title.value = ""; f.elements.spec.value = ""; f.elements.verify.value = "";
-    toast("已经交给 AI，进度会显示在下面");
-    await loadCode(false);
-  } catch (err) { toast(err.message); }
-  finally { go.disabled = false; go.textContent = "交给 AI"; }
-});
-
-// ---- settings: pictures / video models, coding projects, remote access ----------------------
+// ---- settings: pictures / video models, remote access ---------------------------------------
 function renderMediaModels(imageModels, videoModels) {
   const box = $("#tab-media");
   box.innerHTML = `<p class="small-note">画图和视频都用豆包（火山方舟）：先在「聊天」标签里填好豆包的 API key，再在这里列出要用的模型。
@@ -830,34 +839,6 @@ function renderMediaModels(imageModels, videoModels) {
     card.querySelector("[data-a=add]").onclick = () => { const v = input.value.trim(); if (v && !list.includes(v)) { list.push(v); input.value = ""; save(); } };
     draw(); box.appendChild(card);
   }
-}
-
-function renderProjects(projects) {
-  const box = $("#tab-code");
-  box.innerHTML = `<p class="small-note">在这里登记可以从网页派任务的项目（这台电脑上的文件夹）。AI 会在这台电脑上运行命令，所以只有管理员和你在「家人」里打开了「写程序」的人可以用。
-    项目要先在命令行里初始化一次：<code>python -m orch -p "项目文件夹" init</code></p>
-    <div class="card"><div class="projects"></div>
-      <div class="row-end"><button class="ghost" data-a="add">添加项目</button><button class="primary" data-a="save">保存</button></div>
-      <p class="error"></p></div>`;
-  const list = box.querySelector(".projects");
-  const addRow = (p = { name: "", path: "" }) => {
-    const row = document.createElement("div"); row.className = "row project-row";
-    row.innerHTML = `<input class="p-name" placeholder="名字，例如 我的网站" value="${esc(p.name)}" aria-label="项目名字">
-      <input class="p-path" placeholder="文件夹，例如 D:\\code\\my-site" value="${esc(p.path)}" aria-label="项目文件夹">
-      <button class="icon-btn" aria-label="移除"><svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15"/></svg></button>`;
-    row.querySelector("button").onclick = () => row.remove();
-    list.appendChild(row);
-  };
-  projects.forEach(addRow);
-  if (!projects.length) addRow();
-  box.querySelector("[data-a=add]").onclick = () => addRow();
-  box.querySelector("[data-a=save]").onclick = async () => {
-    const items = [...list.querySelectorAll(".project-row")].map((r) => ({ name: r.querySelector(".p-name").value.trim(), path: r.querySelector(".p-path").value.trim() }))
-      .filter((p) => p.name || p.path);
-    const err = box.querySelector(".error"); err.textContent = "";
-    try { const d = await api("/api/admin/projects", { method: "POST", body: { projects: items } }); renderProjects(d.projects); toast("已保存"); }
-    catch (e) { err.textContent = e.message; }
-  };
 }
 
 async function renderRemote() {
@@ -886,6 +867,211 @@ async function renderRemote() {
   } else {
     box.innerHTML = head + `<div class="card"><div class="card-head"><h3>还没有开启</h3><span class="badge">未开启</span></div>${steps}</div>`;
   }
+}
+
+// ---- settings: phone alerts (ntfy; orch/notify.py through /api/admin/notify) --------------------------------
+// what happened, by the kinds the server records (orch/notify.py KINDS)
+const KIND_LABEL = {
+  discuss_waiting: "讨论等你决定", discuss_failed: "讨论出错或中断", discuss_stuck: "讨论可能卡住",
+  cowork_blocker: "Cowork 遇到阻碍", cowork_question: "Cowork 有问题", cowork_done: "Cowork 做完了",
+  cowork_silent: "Cowork 很久没回报", gpt_waiting: "ChatGPT 等你按发送", cc_permission: "Claude Code 等你批准或回答",
+  cc_input: "Claude Code 停下来等你", test: "测试提醒",
+};
+// the event groups (orch/notify.py GROUPS) and the number each one is tuned by: [threshold, text before, unit]
+const NOTIFY_EVENTS = [
+  { key: "discussion", label: "讨论等你决定、出错或卡住", num: ["stuck_minutes", "多久没有动静算卡住：", "分钟"] },
+  { key: "cowork", label: "Cowork 遇到阻碍、有问题、做完了" },
+  { key: "cowork_silent", label: "Cowork 领走方案后很久没回报（弱信号）", num: ["cowork_silent_hours", "多久没有回报算很久：", "小时"] },
+  { key: "gpt", label: "ChatGPT 里有任务等你按发送", num: ["gpt_wait_minutes", "等了多久才提醒：", "分钟"] },
+  { key: "cc_permission", label: "Claude Code 等你批准或回答（权限、表单）" },
+  { key: "cc_input", label: "Claude Code 做完一轮、停下来等你（每次回答后都会有，容易多）" },
+];
+const AWAY = ["cc_away_minutes", "你在这台电脑前时不发 Claude Code 的提醒：最近", "分钟内动过键盘或鼠标就不发（0 = 总是发）"];
+const HOOK_STATE = { installed: "已安装", outdated: "需要重新安装（MAO 或 Python 换了位置）", missing: "还没有安装",
+                     no_claude: "这台电脑上没有找到 Claude Code", broken: "Claude Code 的 settings.json 读不懂，先修好它" };
+const SEND_ERROR = { rate_limited: "太多了，稍后再发", busy: "没有发出（文件被占用）" };
+
+async function renderNotify() {
+  const box = $("#tab-notify");
+  box.innerHTML = '<p class="small-note">正在检查…</p>';
+  let d;
+  try { d = await api("/api/admin/notify"); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  box.innerHTML = `<p class="small-note">有事等你的时候（讨论要你决定、Cowork 卡住了、Claude Code 等你批准……），MAO 往你的手机发一条短提醒。用的是 ntfy App，免费，不用注册。</p>
+    <div class="card" id="nt-main"></div><div class="card" id="nt-events"></div><div class="card" id="nt-recent"></div>`;
+  notifyMain(d); notifyEvents(d); notifyRecent(d);
+}
+const notifyPost = (body) => api("/api/admin/notify", { method: "POST", body });   // answers with the whole state again
+
+// on/off, where the pushes go (server, topic, token) and how to get them on the phone
+function notifyMain(d) {
+  const card = $("#nt-main");
+  card.innerHTML = `<div class="card-head"><h3>手机提醒</h3><span class="badge ${d.enabled ? "on" : ""}">${d.enabled ? "已开启" : "未开启"}</span></div>
+    <label class="switch"><input type="checkbox" data-a="enable" ${d.enabled ? "checked" : ""}><span>开启手机提醒</span></label>
+    <div class="nt-field"><span class="nt-label">服务器</span>
+      <div class="row"><input name="server" value="${esc(d.server)}" autocomplete="off" spellcheck="false" aria-label="服务器">
+        <button class="ghost" data-a="server">保存</button></div>
+      <p class="small-note">自建服务器才需要改</p></div>
+    <div class="nt-field"><span class="nt-label">主题</span>
+      <div class="url-row"><code>${esc(d.topic)}</code><button class="ghost" data-a="copy">复制</button><button class="ghost" data-a="topic">换一个</button></div>
+      <p class="small-note">订阅地址：<a class="nt-sub" href="${esc(d.subscribe_url)}" target="_blank" rel="noopener noreferrer">${esc(d.subscribe_url)}</a></p></div>
+    <div class="nt-field"><span class="nt-label">访问令牌</span>
+      <div class="row"><input type="password" name="token" autocomplete="off" aria-label="访问令牌"
+          placeholder="${d.token_set ? "已设置（填新的可以替换）" : "没有设置"}">
+        <button class="ghost" data-a="token">保存</button>${d.token_set ? '<button class="ghost" data-a="token-clear">删除</button>' : ""}</div>
+      <p class="small-note">只有自建并设了权限的服务器需要</p></div>
+    <p class="small-note">提醒里只写发生了什么和编号，不会有需求、回答、文件内容或密钥。ntfy.sh 是别人的服务器：知道主题名的人都能收到，别把主题告诉别人。</p>
+    <ol class="steps"><li>在手机上安装 ntfy（App Store 或 Google Play 搜 ntfy）</li>
+      <li>打开 ntfy，点 +，主题填上面这一串；用自己的服务器时打开「使用其他服务器」，填服务器地址</li>
+      <li>回到这里点「发一条测试提醒」</li></ol>
+    <div class="row"><button class="primary" data-a="test">发一条测试提醒</button></div>
+    <p class="error" role="alert"></p>`;
+  const err = card.querySelector(".error"), sw = card.querySelector('[data-a="enable"]');
+  sw.onchange = async () => {
+    sw.disabled = true; err.textContent = "";
+    try { const r = await notifyPost({ action: "save", enabled: sw.checked }); notifyMain(r); toast(r.enabled ? "已开启手机提醒" : "已关闭手机提醒"); }
+    catch (e) { sw.checked = !sw.checked; sw.disabled = false; err.textContent = e.message; }
+  };
+  card.onclick = async (e) => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const a = b.dataset.a, token = card.querySelector("[name=token]");
+    err.textContent = "";
+    if (a === "copy") {
+      try { await navigator.clipboard.writeText(d.topic); toast("已复制"); } catch { toast("复制失败，请手动选择文字"); }
+      return;
+    }
+    if (a === "token" && !token.value.trim()) { token.focus(); return; }
+    if (a === "topic" && !confirm("换一个主题？换了以后，手机上要重新订阅新的主题，旧的主题不会再收到提醒。")) return;
+    if (a === "token-clear" && !confirm("删除访问令牌？")) return;
+    const body = { server: { action: "save", server: card.querySelector("[name=server]").value },
+                   topic: { action: "new_topic" }, token: { action: "token", token: token.value.trim() },
+                   "token-clear": { action: "token", token: "" }, test: { action: "test" } }[a];
+    b.disabled = true;
+    if (a === "test") b.textContent = "正在发送…";
+    try {
+      const r = await notifyPost(body);
+      if (a !== "test") {
+        notifyMain(r);
+        toast({ server: "已保存", topic: "已换成新的主题，请在手机上重新订阅", token: "已保存访问令牌", "token-clear": "已删除访问令牌" }[a]);
+        return;
+      }
+      notifyRecent(r);
+      if (r.test.ok) toast("测试提醒已发出，看看手机");
+      else err.textContent = `测试提醒没有发出：${r.test.error}`;
+    } catch (e2) { err.textContent = e2.message; }
+    b.disabled = false;
+    if (a === "test") b.textContent = "发一条测试提醒";
+  };
+}
+
+function notifyNumber(d, [key, before, unit], cls = "") {
+  const [lo, hi] = d.limits[key] || [0, 999];
+  return `<label class="nt-num ${cls}"><span>${before}</span><input type="number" inputmode="numeric" name="${key}" min="${lo}" max="${hi}" step="1"
+    value="${esc(String(d.thresholds[key]))}"><span>${unit}</span></label>`;
+}
+
+// which events push, their thresholds, the language of the pushes; the Claude Code hook
+function notifyEvents(d) {
+  const card = $("#nt-events");
+  const row = (ev) => `<div class="nt-event"><label class="nt-check"><input type="checkbox" name="${ev.key}" ${d.events[ev.key] ? "checked" : ""}>
+    <span>${ev.label}</span></label>${ev.num ? notifyNumber(d, ev.num) : ""}</div>`;
+  const shown = NOTIFY_EVENTS.filter((ev) => ev.key !== "gpt" || d.gpt_available);   // the GPT bridge is not in every copy
+  card.innerHTML = `<div class="card-head"><h3>提醒哪些事</h3></div>
+    ${shown.filter((ev) => !ev.key.startsWith("cc_")).map(row).join("")}
+    <div class="nt-group"><h4>Claude Code</h4>
+      ${shown.filter((ev) => ev.key.startsWith("cc_")).map(row).join("")}
+      ${notifyNumber(d, AWAY, "away")}
+      <div class="nt-hook"></div></div>
+    <label class="nt-lang"><span>提醒用的语言</span>
+      <select name="lang"><option value="zh" data-no-tr>中文</option><option value="en" data-no-tr>English</option></select></label>
+    <p class="error" role="alert"></p>
+    <div class="row-end"><button class="primary" data-a="save">保存</button></div>`;
+  card.querySelector("[name=lang]").value = d.lang;
+  notifyHook(d);
+  const save = card.querySelector('[data-a="save"]'), err = card.querySelector(":scope > .error");
+  save.onclick = async () => {
+    const events = {}, thresholds = {};
+    card.querySelectorAll(".nt-check input").forEach((x) => (events[x.name] = x.checked));
+    card.querySelectorAll(".nt-num input").forEach((x) => (thresholds[x.name] = x.value.trim()));
+    err.textContent = ""; save.disabled = true;
+    try {
+      const r = await notifyPost({ action: "save", events, thresholds, lang: card.querySelector("[name=lang]").value });
+      notifyEvents(r); toast("已保存");
+    } catch (e) { err.textContent = e.message; save.disabled = false; }
+  };
+}
+
+function notifyHook(d, result) {
+  const box = $("#nt-events .nt-hook"), st = d.hook.state;
+  const act = st === "installed" ? "hook_uninstall" : st === "missing" || st === "outdated" ? "hook_install" : "";
+  const badge = st === "installed" ? "on" : st === "missing" || st === "no_claude" ? "" : "bad";
+  box.innerHTML = `<div class="nt-hookrow"><span>Claude Code 钩子：</span><span class="badge ${badge}">${HOOK_STATE[st] || esc(st)}</span>
+      ${act ? `<button class="ghost" data-a="${act}">${act === "hook_install" ? "安装" : "移除"}</button>` : ""}</div>
+    <p class="small-note">上面两项 Claude Code 提醒要靠这个钩子。会在这台电脑的 Claude Code 设置里加一个钩子，改之前先备份 settings.json</p>
+    ${result && result.backup ? `<p class="small-note">原来的 settings.json 已备份为 <code>${esc(result.backup)}</code></p>` : ""}
+    <p class="error" role="alert"></p>`;
+  const b = box.querySelector("button[data-a]");
+  if (!b) return;
+  b.onclick = async () => {
+    const install = b.dataset.a === "hook_install";
+    if (!install && !confirm("从 Claude Code 的设置里移除 MAO 的钩子？")) return;
+    b.disabled = true;
+    try {
+      const r = await notifyPost({ action: b.dataset.a });
+      notifyHook(r, r.hook_result);
+      toast(install ? (r.hook_result.changed ? "已安装 Claude Code 钩子" : "钩子已经装好，没有改动")
+                    : (r.hook_result.changed ? "已移除 Claude Code 钩子" : "没有找到 MAO 的钩子，没有改动"));
+    } catch (e) { box.querySelector(".error").textContent = e.message; b.disabled = false; }
+  };
+}
+
+function notifyResult(r) {
+  if (r.ok) return '<span class="nt-ok" aria-label="已发出">✓</span>';
+  if (SEND_ERROR[r.error]) return `<span class="nt-bad">${SEND_ERROR[r.error]}</span>`;
+  return '<span class="nt-bad">没有发出：<span data-no-tr>' + esc(r.error) + "</span></span>";   // HTTP 403, network: …
+}
+
+// what was pushed lately, and whether the web app's background check runs (orch/watch.py)
+function notifyRecent(d) {
+  const card = $("#nt-recent"), w = d.watcher || {};
+  const line = !w.running ? "后台检查：没有运行（网页版启动时会自动开始）"
+    : w.last_tick ? `后台检查：正在运行，上次 ${ago(w.last_tick)}` : "后台检查：正在运行";
+  const rows = d.recent.map((r) => `<li><span class="nt-when">${r.at ? ago(r.at) : ""}</span>
+    <span class="nt-what">${KIND_LABEL[r.kind] || esc(r.kind)}</span>${r.ref ? `<span class="nt-ref" data-no-tr>${esc(r.ref)}</span>` : ""}
+    ${notifyResult(r)}</li>`).join("");
+  card.innerHTML = `<div class="card-head"><h3>最近的提醒</h3><button class="ghost" data-a="refresh">刷新</button></div>
+    <p class="small-note">${line}</p>${w.error ? `<p class="small-note">最近一次出错：${esc(w.error)}</p>` : ""}
+    ${rows ? `<ul class="nt-recent">${rows}</ul>` : '<p class="small-note">还没有发过提醒。</p>'}`;
+  card.querySelector('[data-a="refresh"]').onclick = async () => {
+    try { notifyRecent(await api("/api/admin/notify")); } catch (e) { toast(e.message); }
+  };
+}
+
+// ---- settings: the old task dispatch (legacy switch) ---------------------------------------------
+async function renderLegacy() {
+  const box = $("#tab-legacy");
+  let d;
+  try { d = await api("/api/admin/legacy"); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  const locked = d.source === "env";
+  box.innerHTML = `<div class="card"><div class="card-head"><h3>旧的派活功能</h3><span class="badge ${d.enabled ? "on" : ""}">${d.enabled ? "开" : "关"}</span></div>
+    <p class="small-note">MAO 早期自己拆任务、派给 AI、合并代码：项目页、聊天里的「交给项目」、Agent 页的控制面板、命令行的 task / run / plan 等。现在开发交给 Cowork，这些默认关闭；数据都还在，随时可以打开。</p>
+    <label class="switch"><input type="checkbox" id="legacy-on" ${d.enabled ? "checked" : ""}${locked ? " disabled" : ""}><span>使用旧的派活功能</span></label>
+    ${locked ? '<p class="small-note">现在由环境变量 MAO_LEGACY_DISPATCH 决定，这里改不了</p>' : ""}</div>`;
+  const input = $("#legacy-on");
+  input.onchange = async () => {
+    const on = input.checked;
+    if (!on && d.active_jobs > 0
+        && !confirm(`还有 ${d.active_jobs} 个项目任务在运行。关闭后它们会自己跑完，但在网页上看不到，直到重新打开。确定关闭？`)) {
+      input.checked = true; return;
+    }
+    input.disabled = true;
+    try {
+      await api("/api/admin/legacy", { method: "POST", body: { enabled: on } });
+      state.user = (await api("/api/state")).user;
+      roleChanged();
+      toast(on ? "已打开旧的派活功能" : "已关闭旧的派活功能");
+    } catch (err) { toast(err.message); }
+    renderLegacy();
+  };
 }
 
 // ---- documents ---------------------------------------------------------------------------
@@ -1135,6 +1321,8 @@ async function submitLocal(f, kind, go) {
 
 // ---- agents (admin) -----------------------------------------------------------------------
 const AGENT_STATE = { idle: ["空闲", ""], working: ["工作中", "run"], paused: ["已暂停", "bad"], cooling: ["暂时停用", "bad"] };
+const TASK_STATUS = { queued: "等待开始", running: "AI 正在写", verified: "检查通过", merged: "已合并进项目", failed: "失败",
+                      blocked: "卡住了，需要人看一下", cancelled: "已取消" };
 const TOOL_NAME = { claude_code: "Claude Code", codex: "Codex" };
 
 function money(x) { return x ? `$${x.toFixed(x < 1 ? 3 : 2)}` : "$0"; }
@@ -1144,9 +1332,8 @@ async function loadAgents() {
   let d;
   try { d = await api("/api/admin/agents"); } catch (err) { $("#agents-body").innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
   const note = $("#agents-notice");
-  note.innerHTML = d.projects.length ? "" : '还没有登记项目。请在 <a href="#" data-settings="code">设置 · 写程序</a> 里登记一个 orch 项目，这里就能看到它的 agent。';
-  note.hidden = !!d.projects.length;
-  note.querySelectorAll("[data-settings]").forEach((a) => a.onclick = (e) => { e.preventDefault(); openSettings(a.dataset.settings); });
+  note.innerHTML = d.projects.length || !d.dispatch ? "" : '还没有项目。请在 <a href="#projects">项目</a> 页添加一个，这里就能看到它的 agent。';
+  note.hidden = !!d.projects.length || !d.dispatch;   // the projects' panels belong to the old dispatch
   renderAgents(d);
   schedulePoll("agents", true, 10000);
 }
@@ -1174,8 +1361,9 @@ function renderAgents(d) {
       const c = document.createElement("div"); c.className = "card agent";
       const rate = a.recent.rate === null ? (a.week.runs ? "只做过审查" : "还没跑过") : `${Math.round(a.recent.rate * 100)}%（最近 ${a.recent.runs} 次）`;
       const until = a.until && !a.until_forever ? `，到 ${new Date(a.until * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
-      const quota = a.quota ? Object.entries(a.quota).filter(([, w]) => w && w.used_percent !== undefined)
-        .map(([k, w]) => `${k === "primary" ? "5 小时" : k === "secondary" ? "7 天" : esc(k)} 已用 ${Math.round(w.used_percent)}%`).join(" · ") : "";
+      // orch reports {five_hour: {utilization: 0..1, resets_at}, seven_day: {...}}
+      const quota = a.quota ? Object.entries(a.quota).filter(([, w]) => w && typeof w.utilization === "number")
+        .map(([k, w]) => `${k === "five_hour" ? "5 小时" : k === "seven_day" ? "7 天" : esc(k)} 已用 ${Math.round(w.utilization * 100)}%`).join(" · ") : "";
       c.innerHTML = `
         <div class="card-head"><h3>${esc(a.pool)}</h3><span class="badge ${cls}">${cls === "run" ? '<span class="spinner small"></span>' : ""}${label}${until}</span></div>
         <p class="job-meta">${esc(a.executor)}${a.model ? ` · ${esc(a.model)}` : ""} · ${a.billing === "api" ? "按量付费" : "订阅"}</p>
@@ -1213,4 +1401,7 @@ async function agentAct(body) {
   catch (err) { toast(err.message); }
 }
 
-boot().catch((err) => { document.body.textContent = err.message === OFFLINE ? OFFLINE : "打不开：" + err.message; });
+// start once the page's later scripts (projects.js, job.js, discuss.js) have run too: a quick /api/state answer must
+// not reach showView() before MAOProjects / MAODiscuss exist
+const startApp = () => boot().catch((err) => { document.body.textContent = err.message === OFFLINE ? OFFLINE : "打不开：" + err.message; });
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startApp); else startApp();

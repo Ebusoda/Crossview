@@ -102,6 +102,56 @@ def pid_alive(pid: int | None) -> bool:
     return True
 
 
+def process_started(pid: int | None) -> float | None:
+    """When a live process started (epoch seconds), None when that cannot be told. A stored pid may belong to
+    another program by now (Windows hands old pids out again soon, and a reboot starts over): compare this with
+    when the pid was recorded before stopping anything by it."""
+    if not pid or not pid_alive(pid):
+        return None
+    if IS_WINDOWS:
+        import ctypes
+
+        k32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        h = k32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return None
+        try:
+            times = [ctypes.c_ulonglong() for _ in range(4)]   # creation, exit, kernel, user (FILETIME)
+            if not k32.GetProcessTimes(h, *(ctypes.byref(t) for t in times)):
+                return None
+            return times[0].value / 1e7 - 11644473600       # 100 ns steps since 1601 -> epoch seconds
+        finally:
+            k32.CloseHandle(h)
+    try:   # Linux: field 22 of /proc/<pid>/stat is the start in clock ticks after boot
+        ticks = int(Path(f"/proc/{int(pid)}/stat").read_text().rsplit(")", 1)[1].split()[19])
+        boot = next(int(ln.split()[1]) for ln in Path("/proc/stat").read_text().splitlines()
+                    if ln.startswith("btime "))
+        return boot + ticks / os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError, IndexError, StopIteration):
+        pass
+    try:   # macOS and other systems without /proc: the elapsed time ps reports, [[dd-]hh:]mm:ss
+        out = subprocess.run(["ps", "-o", "etime=", "-p", str(int(pid))], capture_output=True, timeout=5,
+                             stdin=subprocess.DEVNULL).stdout.decode().strip()
+        days, _, clock = out.rpartition("-")
+        secs = 0
+        for part in clock.split(":"):
+            secs = secs * 60 + int(part)
+        return time.time() - secs - int(days or 0) * 86400
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def started_within(pid: int | None, earliest: float, latest: float) -> bool:
+    """The process with this pid is alive and started between these times (it is the one that was recorded)."""
+    start = process_started(pid)
+    return start is not None and earliest <= start <= latest
+
+
+def run_alive(pid: int | None, started_at: float | None) -> bool:
+    """The agent process recorded for a run is still running: same pid, started with the run (not a reuse)."""
+    return bool(started_at) and started_within(pid, float(started_at) - 10, float(started_at) + 60)
+
+
 def child_env(extra: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
@@ -207,10 +257,13 @@ def run_streaming(
 
             def pump() -> None:
                 assert proc.stdout is not None
-                with events_path.open("ab") as out_f:
+                # the .times sidecar holds when each line arrived, so a viewer can show live timings
+                with events_path.open("ab") as out_f, events_path.with_suffix(".times").open("a") as times_f:
                     for raw in proc.stdout:
                         out_f.write(raw)
                         out_f.flush()
+                        times_f.write(f"{time.time():.3f}\n")
+                        times_f.flush()
                         tail.append(raw.decode("utf-8", errors="replace").rstrip("\r\n"))
 
             reader = threading.Thread(target=pump, daemon=True)

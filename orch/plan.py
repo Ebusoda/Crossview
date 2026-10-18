@@ -12,7 +12,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from . import workspace as ws
 from .adapters import RunContext
@@ -274,10 +274,14 @@ def render(plan_id: str, goal: str, plan: Plan, status: str) -> str:
 
 # -- running the planner -------------------------------------------------------------
 
-def run_planner(orch, goal: str, context: str = "", pool: str | None = None) -> tuple[str, Plan]:
-    """Run a read-only planning session and store the resulting draft plan."""
+def run_planner(orch, goal: str, context: str = "", pool: str | None = None,
+                on_plan: Callable[[str], None] | None = None) -> tuple[str, Plan]:
+    """Run a read-only planning session and store the resulting draft plan. on_plan(plan_id) is
+    called as soon as the plan has its id, so a viewer can follow the planner live."""
     store, cfg = orch.store, orch.cfg
     plan_id = store.new_plan(goal)
+    if on_plan:
+        on_plan(plan_id)
     pseudo = Task(id=plan_id, title="plan", type="plan", difficulty="M")
     if pool:
         if pool not in cfg.pools:
@@ -307,12 +311,16 @@ def run_planner(orch, goal: str, context: str = "", pool: str | None = None) -> 
         run = store.create_run(plan_id, pool_name, adapter.executor, resumed=False, kind="plan")
         events = plan_dir / plan_id / f"{run.id}.jsonl"
         run.events_path = str(events)
+        store.save_run(run)  # saved before it starts, so a viewer can follow the plan live
         orch.say(tr("[{0}] {1} -> {2} ({3}), 只读规划中...", plan_id, run.id, pool_name, adapter.executor))
         ctx = RunContext(task=pseudo, worktree=wt, events_path=events,
                          timeout_s=orch._minutes("run_timeout_minutes", 45),
-                         model=adapter.model, readonly=True)
+                         model=adapter.model, readonly=True, on_start=_pid_saver(store, run))
         result = adapter.run(ctx)
         _finish_run(store, run, result)
+        if result.status == RunStatus.INTERRUPTED:   # stopped by the user: not the pool's fault, no next pool
+            store.save_plan(plan_id, "failed", "", None, error="interrupted")
+            raise KeyboardInterrupt
         if result.status in INFRA_FAILURES or result.status == RunStatus.TIMEOUT:
             orch.breakers.record_failure(pool_name, result.status, result.resets_at)
             last_error = f"{pool_name}: {result.status.value} {result.error[-300:]}"
@@ -329,11 +337,16 @@ def run_planner(orch, goal: str, context: str = "", pool: str | None = None) -> 
             (task_dir / "PROMPT.md").write_text(fix_prompt(str(e)), encoding="utf-8")
             run2 = store.create_run(plan_id, pool_name, adapter.executor, resumed=True, kind="plan")
             run2.events_path = str(plan_dir / plan_id / f"{run2.id}.jsonl")
+            store.save_run(run2)
             ctx2 = RunContext(task=pseudo, worktree=wt, events_path=Path(run2.events_path),
                               timeout_s=ctx.timeout_s, model=adapter.model,
-                              resume_session=result.session_id, readonly=True)
+                              resume_session=result.session_id, readonly=True,
+                              on_start=_pid_saver(store, run2))
             result2 = adapter.run(ctx2)
             _finish_run(store, run2, result2)
+            if result2.status == RunStatus.INTERRUPTED:
+                store.save_plan(plan_id, "failed", "", None, error="interrupted")
+                raise KeyboardInterrupt
             try:
                 plan = validate(extract_json(result2.summary))
             except PlanError as e2:
@@ -344,6 +357,13 @@ def run_planner(orch, goal: str, context: str = "", pool: str | None = None) -> 
         return plan_id, plan
     store.save_plan(plan_id, "failed", "", None, error=last_error)
     raise PlanError(f"{plan_id}: planning failed - {last_error or 'no available pool'}")
+
+
+def _pid_saver(store, run):
+    def on_start(pid: int) -> None:
+        run.pid = pid
+        store.save_run(run)
+    return on_start
 
 
 def _finish_run(store, run, result) -> None:

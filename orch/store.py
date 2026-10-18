@@ -150,7 +150,7 @@ class Store:
         return self._task_from_row(r) if r else None
 
     def list_tasks(self, statuses: Iterable[TaskStatus] | None = None) -> list[Task]:
-        rows = self.db.execute("SELECT * FROM tasks ORDER BY id").fetchall()
+        rows = self.db.execute("SELECT * FROM tasks ORDER BY length(id), id").fetchall()
         tasks = [self._task_from_row(r) for r in rows]
         if statuses is not None:
             wanted = set(statuses)
@@ -192,7 +192,7 @@ class Store:
         return Run(**kw)
 
     def runs_for(self, task_id: str, kind: str | None = None) -> list[Run]:
-        rows = self.db.execute("SELECT * FROM runs WHERE task_id=? ORDER BY id", (task_id,)).fetchall()
+        rows = self.db.execute("SELECT * FROM runs WHERE task_id=? ORDER BY length(id), id", (task_id,)).fetchall()
         runs = [self._run_from_row(r) for r in rows]
         return [r for r in runs if r.kind == kind] if kind else runs
 
@@ -317,6 +317,18 @@ class Store:
             "INSERT INTO log(ts, task_id, run_id, kind, message) VALUES(?,?,?,?,?)",
             (time.time(), task_id, run_id, kind, message),
         )
+
+    def logs_for(self, task_id: str) -> list[sqlite3.Row]:
+        """A task's (or plan's) log rows, oldest first."""
+        return self.db.execute("SELECT * FROM log WHERE task_id=? ORDER BY id", (task_id,)).fetchall()
+
+    def last_log_ts(self, task_id: str, kinds: Iterable[str]) -> float:
+        """When the newest log row of these kinds was written for a task (0 if never)."""
+        kinds = list(kinds)
+        marks = ", ".join("?" for _ in kinds)
+        r = self.db.execute(f"SELECT MAX(ts) FROM log WHERE task_id=? AND kind IN ({marks})",
+                            (task_id, *kinds)).fetchone()
+        return float(r[0] or 0)
 
     def tail_log(self, limit: int = 20) -> list[sqlite3.Row]:
         return self.db.execute("SELECT * FROM log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()

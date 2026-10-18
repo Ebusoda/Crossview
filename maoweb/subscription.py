@@ -87,10 +87,10 @@ class Subscription:
         # Web chat runs with every tool switched off; without this note the model still tries to read
         # files the user mentions and prints the raw tool call as its answer.
         system += ("\n\n这是网页聊天：你没有任何工具，不能读取文件、浏览文件夹或运行命令，也不要输出工具调用。"
-                   "需要看文件或改代码时，直接根据对话回答，并提醒用户点“分派给 Agent”交给 agent 去做。"
+                   "需要看文件或改代码时，直接根据对话回答，并说明网页聊天看不到文件。"
                    "\nThis is web chat: you have no tools and cannot read files, browse folders or run commands; "
                    "never print tool calls. If files must be read or changed, answer from the conversation and "
-                   "suggest the user click \"Dispatch to Agent\".")
+                   "say that web chat cannot see files.")
         prompt = ("以下 JSON 是当前网页对话的历史消息。请接着回答最后一条 user 消息，"
                   "只输出给用户的回答。\n" + json.dumps(
                       [m for m in messages if m["role"] != "system"], ensure_ascii=False))

@@ -17,9 +17,14 @@ from .models import Run, Task
 from .workspace import diff_stat
 
 TASK_DIR = ".task"
+ANSWERED = "user answered"   # task.note set by Orchestrator.requeue when the user's words answer a BLOCKED question
 
 ROLE_BY_TYPE = {
     "code_change": "Coding Agent",
+    "frontend": "Coding Agent",
+    "backend": "Coding Agent",
+    "testing": "Coding Agent",
+    "documentation": "Documentation Agent",
     "research": "Research Agent",
     "review": "Reviewer Agent",
 }
@@ -48,7 +53,8 @@ def _bullets(items: list[str], empty: str) -> str:
 def write_task_files(wt: Path, task: Task, mode: str) -> Path:
     """Write TASK.md / TASK.json / PROMPT.md.
 
-    mode: fresh | takeover | fix_verify | address_review (resumed author) | review_takeover
+    mode: fresh | takeover | fix_verify | address_review (resumed author) | review_takeover |
+          user_feedback (resumed author, the user asked for changes) | feedback_takeover | resolve_conflict
     """
     d = task_dir(wt)
     (d / "TASK.json").write_text(
@@ -95,6 +101,23 @@ def write_task_files(wt: Path, task: Task, mode: str) -> Path:
             "found problems. Read `.task/HANDOFF.md`, then `.task/REVIEW.md`, and fix every item under "
             "\"Issues to fix\". If you think an item is wrong, explain why in `.task/PROGRESS.md` under "
             "Key decisions. Run the acceptance commands again before you stop.\n"
+        )
+    elif mode in ("user_feedback", "feedback_takeover"):
+        first = ("Read `.task/HANDOFF.md` first: another agent did the earlier work, and its changes are "
+                 "already in this directory. Then read" if mode == "feedback_takeover" else "Read")
+        opening = (
+            "## The user answered your question\n\n"
+            "The work on this task stopped because a question was asked (a `BLOCKED:` line in "
+            f"`.task/PROGRESS.md`). {first} the section \"Change requested by the user\" at the end of "
+            "`.task/TASK.md` (the newest round is last): it holds the question and the user's answer. Continue the "
+            "task with that answer. Start `.task/PROGRESS.md` with `BLOCKED:` again only for a new question you "
+            "cannot decide yourself. Run the acceptance commands before you stop, and update `.task/PROGRESS.md`.\n"
+        ) if (task.note or "").startswith(ANSWERED) else (
+            "## The user asked for changes\n\n"
+            "The work on this task passed acceptance and the user looked at the result. They want changes. "
+            f"{first} the section \"Change requested by the user\" at the end of `.task/TASK.md` (the newest "
+            "round is last) and make those changes. If `.task/REVIEW.md` lists issues to fix, fix them as well. "
+            "Run the acceptance commands again before you stop, and update `.task/PROGRESS.md`.\n"
         )
     elif mode == "resolve_conflict":
         opening = (
@@ -190,11 +213,30 @@ def read_progress(wt: Path) -> str:
     return p.read_text(encoding="utf-8-sig", errors="replace") if p.exists() else ""
 
 
-def blocked_reason(wt: Path) -> str | None:
-    text = read_progress(wt).lstrip()
+def blocked_from_text(text: str) -> str | None:
+    """The agent's question when PROGRESS.md starts with "BLOCKED: ..." (its first non-blank line), else None.
+    The one rule for both orch (the run counts as stuck) and the web page (it shows the question)."""
+    text = (text or "").lstrip("﻿").lstrip()
     if text.upper().startswith("BLOCKED:"):
         return text.splitlines()[0][len("BLOCKED:"):].strip() or "no reason given"
     return None
+
+
+def blocked_reason(wt: Path) -> str | None:
+    return blocked_from_text(read_progress(wt))
+
+
+def clear_blocked(wt: Path) -> str | None:
+    """Remove a leading "BLOCKED: ..." line from PROGRESS.md (the user answered, or sent the task back): left
+    there, the next run would count as stuck again whatever the agent did. Returns the question it held."""
+    p = wt / TASK_DIR / "PROGRESS.md"
+    text = read_progress(wt)
+    question = blocked_from_text(text)
+    if question is None:
+        return None
+    lines = text.lstrip("﻿").lstrip().splitlines(keepends=True)
+    p.write_text("".join(lines[1:]).lstrip("\r\n"), encoding="utf-8")
+    return question
 
 
 _PS_WRAPPER = re.compile(r'^"?[A-Za-z]:\\\\?[^"]*powershell\.exe"?\s+-Command\s+', re.I)

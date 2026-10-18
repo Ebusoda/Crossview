@@ -1,177 +1,189 @@
-# MAO：多模型编排器（中文说明）
+# MAO（中文说明）
 
-一个跑在你自己电脑上的个人 AI 调度系统。它把 Claude Code、Codex（GPT）、DeepSeek、豆包、千问等模型当作可以互相替换的「执行者」：
-按任务难度和成本分派任务，测试通过才算完成，失败时带着交接说明换一个模型接手。每次调用只给模型完成任务所需的最小上下文，
-省 token、省钱。
+MAO 跑在你自己的 Windows 电脑上，和 Claude Cowork 搭配使用。GPT（通过 Codex 命令行）和 Claude（通过 Claude Code）
+围绕一个需求讨论好几轮，全程只读，用的是你自己的订阅。每个阶段由你拍板；批准后的方案由 Cowork 通过 MCP 工具从 MAO
+领走、自己开发，并把进度报回来。MAO 还给 Cowork 补上它在这台电脑上做不到的事（办公文件、银行流水），带一个家用网页版，
+有事等你时推送到你的手机。MAO 自己不再给多个编程 agent 派活：旧的派活功能成了可选的旧功能，默认关闭。
 
 只需要 Python 3.11 以上，不用安装任何第三方库。在 Windows 上开发和使用。
 
-## 现在能用它做什么
-
-- 在命令行里，或者在 Claude Desktop 这类聊天应用里（MCP），把编程任务交给你自己的模型。测试通过才算完成。
-- 用你已有的账号：Claude Code、Codex 的订阅，Gemini CLI，以及 DeepSeek、GPT、Claude、千问、Gemini、豆包的 API key（`orch connect` 会列出哪些能用）。
-- 每个任务先交给合适的最便宜的模型；失败、崩溃、被限流或卡住时换更强的模型，下一个模型读交接说明接着做。
-- 把一个大目标拆成任务，你批准后再执行（`orch plan`）；或者让两家模型各出方案、互相点评，裁判写决策记录（`orch decide`）。
-- 同时跑多个任务，每个都在自己的 git worktree 里，自动或手动合并。
-- 看每个模型花了多少钱、一次通过的比例（`orch report`），以及每次调用到底发了什么（`orch context`）。
-- 在一个面板上看所有 agent：正在做什么、今天和这周用了多少、订阅额度、最近成功率和最近一次出错；可以暂停、恢复某个 agent，或者把任务换给另一个（`orch agents`）。
-- 看到你在这台电脑上自己开的 Claude Code、Codex 会话，和 orch 派的活放在一起：哪个项目、什么模型、上次什么时候用、现在是不是在用、用了多少 token（`orch sessions`）。只从会话记录里读时间、文件夹和 token 数，不打开对话内容和登录文件。
-- 用大白话问 Excel、CSV 表格（`orch sheet ask 支出.xlsx "这个季度哪个部门花得最多"`）。模型只看到列名和前 5 行样例
-  （加 `--no-samples` 连样例也不发），数字在你自己的电脑上对整张表计算。会给出答案、一个结果 Excel 和一张图。
-- 起草或润色 Word（`orch doc draft "写一份国庆值班安排的通知" --from 记录.docx`，`orch doc polish 总结.docx "压缩到 800 字"`）。
-  生成真正的 .docx；加 `--style gongwen` 按公文版式排版（仿宋三号、小标宋标题、每行 28 磅）。起草只发你的要求和指定的材料，润色会发整篇文档。
-- 填你自己的 Word 模板：把要填的地方写成 `{{标题}}`、`{{日期}}`，然后 `orch doc fill 模板.docx "十月月报：……"`。
-  只发字段名和你的要求，模板的版式不变。
-- 发出去之前自动脱敏：身份证号、手机号、银行卡号、座机、邮箱、「联系人：」这类标签后面的姓名，以及你用 `--mask`
-  或 `mask_words.txt` 指定的词，都换成占位符，结果回来后再换回原文。`orch office sensitive on`（或 `--sensitive`）
-  只用国内模型（DeepSeek、千问、豆包）。脱敏只能识别常见格式，不能保证找全：工作文件发给外部模型前先确认单位规定，
-  涉密文件一律不要用。
-- 老格式也能用：.doc、.wps、.rtf、.xls、.et 文件会先用电脑上装的 Word / Excel、WPS 或 LibreOffice 转换（原文件不动）。
-- 资金追踪（`orch trace 流水文件夹/`）：放进来的几个人之间的每笔转账，都到对方流水里核对有没有到账（同样金额、
-  `--days` 天以内、对方记录指回转出人）；列出取现和转给不认识的账户的记录；把每个外部账户汇总起来，带上流水里写的
-  开户行和按卡号推测的银行。结果是一个 Excel 和一张流向图。全部在本机计算，不发给任何模型。
-  对方是谁、在哪个银行，只能看流水里写了什么。
-- 在一堆文件里找信息（`orch find 文件夹 张三 6222021234567890123`，`--type 身份证 / 手机 / 银行卡 / 邮箱`）：
-  Excel / WPS / CSV 的每个工作表、每个格子，Word 的段落和表格，文本文件，装了 pypdf 或 pdftotext 时还有 PDF。
-  号码中间有空格、横杠也能找到。只在本机查，找到的地方存成一个 Excel。
-- 在聊天应用里也能用办公功能：MCP 服务（`orch mcp`）提供 `office_sheet_ask`、`office_doc`、`office_trace`
-  和 `office_find`（后两个默认只返回数量和文件位置，要细节才返回内容）。
-  `orch office` 和 `orch report` 会显示办公功能用了多少次、多少 token。
-- 用一个自动生成的文件把整个项目交给新的聊天会话（`orch handoff export`）。
-- 先用假模型离线把这些都试一遍（`orch demo`）。
-
 ## 它能做什么
 
-- **把活交给能做好的最便宜的模型**：每种任务类型和难度都有一个按顺序尝试的「池」列表（池 = 命令行工具或 API + 模型 + 计费方式）。
-  简单的编码任务先给 DeepSeek，难的给 Codex 或 Claude。
-- **只信测试，不信模型自己说**：任务的验收命令全部通过（退出码为 0），并且合并后整个项目的基线测试还能通过，才算完成。
-  只有客观失败才会升级到更贵的模型。
-- **卡住了就提前换人**：一次运行没有改动任何文件，或者验收报错和上一次完全一样，就马上换下一个模型，不把剩下的次数浪费在同一个模型上。
-- **出了问题能接着做**：每个任务都在自己的 git worktree 和分支里运行，每次运行后自动做 checkpoint 提交。
-  崩溃、限流、按 Ctrl+C 都会触发熔断，下一个模型读取自动生成的 `HANDOFF.md` 接着做，不需要别家模型的聊天记录。
-- **只给最小必要的上下文**：上下文管理器从项目记忆（`docs/project/`，随项目一起版本化）里挑出和这个任务相关的内容，
-  控制在 token 预算以内。每次调用给了什么都有记录（`orch context ID`）。
-- **花了多少一目了然**：`orch report` 按任务类型和池列出首次通过率、每个成功任务的成本、缓存命中和调用轮数。
-  还有单任务预算、订阅额度的节奏闸门，以及需要你批准才生效的路由建议（`orch route suggest`）。
-- **只在测试覆盖不到的地方审查**：高风险或没有测试的改动，由另一家公司的模型只读审查；
-  审查通过直接 API 只发规格和改动（约 1 千 token，原来要 8.5 万）。
+- **讨论**：在网页版里写下想法或需求，可以关联一个项目文件夹。GPT 和 Claude 先各自分析，再一轮轮互相挑错、修订方案。
+  每个阶段结束有一份小结（共识、未解决的分歧、风险、问你的问题），由你决定下一步：回答它们的问题、再讨论一轮或交给对方评审、
+  修改需求、否掉或批准方案。整个过程记在决策记录里。
+- **交给 Cowork 的方案**：批准后的方案成为一份交接说明（brief）。Cowork 用 `mao_list_briefs`、`mao_get_brief` 找到并领取，
+  自己开发，再用 `mao_report_progress` 报告进度、阻碍、问题或完成。MAO 自己不会开始开发。
+- **手机提醒**（ntfy App）：讨论在等你决定、Cowork 遇到阻碍或有问题、Claude Code 在等你批准。MAO 只看、只发一句话，
+  从不替你批准任何东西。
+- **家用网页版**：自己选模型聊天、画图和视频、文档，每个家人一个账号，中文或英文，手机上也能用，出门在外通过 Tailscale 打开。
+- **命令行办公**（Cowork 也能用）：问 Excel、CSV 表格，起草、润色或按模板填写 Word，资金追踪，在一堆文件里找名字和号码。
+  发给模型之前先隐藏个人信息；敏感模式只用国内模型。
+- **会话列表**：这台电脑上的 Claude Code、Codex 会话，包括你自己手动开的（文件夹、模型、上次使用、token 数）。不看对话内容。
 
-## 原理
+## 从下载到第一次讨论
 
-```
-命令行 / MCP ──▶ 编排器（确定性的状态机，控制决策不交给任何 LLM）
-                 ├─ 上下文管理器    项目记忆 → 检索 → 预算 → .task/CONTEXT.md
-                 ├─ 模型与预算      路由阶梯、熔断、额度保留、节奏闸门、单任务预算
-                 ├─ 执行者          Claude Code · Codex · Gemini CLI · opencode（DeepSeek 等）· 直接 API
-                 ├─ 工作区          每个任务一个 git worktree、checkpoint、squash 合并
-                 ├─ 验收            验收命令和基线命令决定成败
-                 └─ 记忆写入        最近变更、决策索引、待确认的经验 → docs/project/
-```
+需要 Python 3.11 以上和 git；下面两个命令行工具需要 Node.js。MAO 自己不用再装别的东西。下面的命令用 PowerShell，
+请在下载下来的文件夹里运行（或者先运行一次 `pip install -e .`，之后就可以直接输入 `orch`、`maoweb`）。
 
-状态分三处保存：控制状态在 SQLite（`.agents/state.db`，只有编排器写），工作状态在 git，
-认知状态在文件里（`PROGRESS.md`、`HANDOFF.md`、项目记忆）。没有任何状态只存在某个模型的会话里，所以任何模型都能接手任何任务。
+1. **下载**：
 
-## 从下载到第一个任务
+   ```powershell
+   git clone https://github.com/Ebusoda/Multi-Agent-Orchestrator.git
+   cd Multi-Agent-Orchestrator
+   ```
 
-需要 Python 3.11 以上和 git，此外不用安装任何东西。在 Windows 上开发和使用，下面的命令用 PowerShell。
-请在下载下来的文件夹里运行（或者先运行一次 `pip install -e .`，之后就可以直接输入 `orch`）。
+2. **打开网页版**：双击 `run_web.cmd`（或运行 `python -m maoweb`），会打开 http://127.0.0.1:8848/ ，第一次打开时创建管理员账号。
+   让它一直开着：手机提醒的检查也在它里面运行。
+3. **安装并登录负责讨论的两个命令行工具**：Claude Code（`npm install -g @anthropic-ai/claude-code`，然后运行一次 `claude`）
+   用你的 Claude 套餐；Codex（`npm install -g @openai/codex`，然后运行一次 `codex`）用你的 ChatGPT 套餐。
+   `python -m orch doctor` 会显示两个是否都找得到。然后在网页版里打开 **讨论**。
+4. **把 MAO 加到 Claude Desktop / Cowork**：在 `claude_desktop_config.json` 里加上下面这段（把 `F:\MAO` 换成你下载到的文件夹），
+   然后重启 Claude Desktop：
 
-**1. 下载，先跑离线演示**（假执行者，不需要账号，不花钱）：
+   ```json
+   {"mcpServers": {"orch": {"command": "cmd",
+                            "args": ["/c", "cd /d F:\\MAO && python -m orch mcp --project F:\\MAO"]}}}
+   ```
 
-```powershell
-git clone https://github.com/Ebusoda/Multi-Agent-Orchestrator.git
-cd Multi-Agent-Orchestrator
-python -m orch demo playground/demo
-python -m orch -p playground/demo run --auto-merge
-python -m orch -p playground/demo status
-```
-
-**2. 连接你自己的模型**：`python -m orch connect` 会列出现在能用哪些。
-
-- **订阅**：安装并登录你付费的命令行工具。Claude Code（`npm install -g @anthropic-ai/claude-code`，然后运行一次 `claude`）
-  用你的 Claude 套餐；Codex（`npm install -g @openai/codex`，然后运行一次 `codex`）用你的 ChatGPT 套餐；
-  Gemini CLI（`npm install -g @google/gemini-cli`）要用 Gemini 的 API key（环境变量 `GEMINI_API_KEY`，在 aistudio.google.com
-  申请）或付费的 Google 方案：2026 年 10 月起，个人免费的 Google 账号登录已经不能用于 Gemini CLI。Gemini 默认不在路由里，
-  想用就把 `"gemini_sub"` 加进 `.agents/orch.toml` 里 `[routing]` 的对应行。
-- **API key**（DeepSeek、GPT、Claude、千问、Gemini、豆包）：`python -m orch key set deepseek` 保存 key
-  （输入时不显示；在 Windows 上会按你的账号加密），或者设置对应的环境变量（`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、
-  `ANTHROPIC_API_KEY`、`DASHSCOPE_API_KEY`、`GEMINI_API_KEY`、`ARK_API_KEY`）。`python -m orch key list` 查看哪些已设置。
-  用 API 模型写代码需要 opencode（`npm install -g opencode-ai`）。
-
-**3. 设置你的项目**（任意至少有一次提交的 git 仓库）：
-
-```powershell
-python -m orch -p 你的仓库 init
-python -m orch -p 你的仓库 connect deepseek              # 小任务和中等任务先交给 DeepSeek
-python -m orch -p 你的仓库 connect openai --for review   # 有风险的改动由 GPT 通过 API 审查
-python -m orch -p 你的仓库 api check openai_api          # 发一次极小的调用，检查 key
-python -m orch -p 你的仓库 doctor
-```
-
-路由、预算等所有设置都在 `你的仓库\.agents\orch.toml` 里。orch 的语言是中文时注释是中文，其他语言时是英文。
-
-**4. 跑第一个任务**：写上验收命令，它们全部返回 0 才算完成。
-
-```powershell
-python -m orch -p 你的仓库 task add --title "Add a --version flag" --difficulty S --verify "python -m unittest -q"
-python -m orch -p 你的仓库 run --auto-merge
-python -m orch -p 你的仓库 status
-python -m orch -p 你的仓库 report
-```
-
-结果会合并到 `orch/integration` 分支，你自己的工作目录不会被改动。满意了再把这个分支合并进你的分支。
-
-**语言**：orch 的提示有中文、英文、日文三种，默认跟随系统语言。用 `python -m orch lang zh`（或 `en`、`ja`）切换；只想这一次换，就加 `--lang en`。
+   `cmd /c cd /d` 先进到 MAO 的文件夹，`python -m orch` 才找得到：不是每个客户端都认 `"cwd"`，不进这个文件夹 Python 会报
+   "No module named orch"。在 Cowork 里可以这样说：“用 MAO 的 mao_get_brief 领取 DS-0001 开始开发”。
+5. **手机提醒**（可选）：网页版 设置 → 手机提醒：在手机上安装 ntfy，订阅页面上显示的主题，点「发一条测试提醒」，
+   收到后打开「开启手机提醒」开关（或者运行 `python -m orch notify setup`，它也会打开提醒）。
+   想在 Claude Code 等你批准时收到提醒，再运行 `python -m orch notify hook install`。
 
 ## 家用网页版
 
-双击 `run_web.cmd`（或 `python -m maoweb`）在这台电脑上打开网页版：http://127.0.0.1:8848/ 。第一次打开时创建管理员账号，
-管理员再在设置里添加家人、填写 API key（用 Windows 自带的加密保存，填完不再显示）。所有东西都留在这台电脑上：
-账号、对话、文件和 key 都在 `run_web.cmd` 旁边的 `.maoweb` 文件夹里。
+`run_web.cmd`（或 `python -m maoweb`）在这台电脑上打开网页版：http://127.0.0.1:8848/ 。管理员在设置里添加家人、填写 API key。
+账号、对话、文件、讨论和 key 都留在这台电脑上，在 `run_web.cmd` 旁边的 `.maoweb` 文件夹里（或环境变量 `MAO_WEB_DATA` 指定的文件夹）；
+API key 用 Windows 自带的加密（DPAPI）保存，填完不再显示。
 
 - **聊天**：自己选模型（DeepSeek、豆包、千问、GPT、Claude、Gemini，用 API key）。管理员还可以用本机 Claude Code 的登录聊天
-  （「Claude（我的订阅）」）：走你的 Claude 订阅，关掉所有工具，别的账号看不到。
-- **分派给 Agent**：聊完以后一键交给 orch，AI 拆成任务，派给登记项目里的 agent，验收、合并；进度、暂停、继续、合并都显示在聊天下面。
+  （「Claude（我的订阅）」）：走你的 Claude 套餐，关掉所有工具，别的账号看不到。
 - **画图**（文字生成或修改照片）和 **视频**（豆包 Seedream / Seedance，`ARK_API_KEY`）。
-- **文档**：问表格、写 / 改 / 按模板填 Word（带常用模板）、资金追踪、在一堆文件里找信息。个人信息和命令行一样先脱敏；
-  敏感模式只用国内模型。
-- **写程序**：管理员和被允许的家人，给设置里登记的 orch 项目派任务。
-- **Agent**（管理员）：控制面板，以及自己打开的 Claude Code / Codex 会话。
-- 界面中文或英文，手机上也能用。`run_web.cmd` 同时在 Tailscale 地址上监听（`--remote`），出门在外用自己的手机也能打开；
+- **文档**：问表格、写 / 改 / 按模板填 Word（带常用模板）、资金追踪、在一堆文件里找信息。个人信息和命令行一样先隐藏。
+- **讨论**（管理员）：上面说的讨论页。可以直接在表单里登记一个项目文件夹（「登记文件夹」）：不会往里面写任何东西，
+  讨论的模型能读、改不了。
+- **Agent**（管理员）：这台电脑上的 Claude Code、Codex 会话，只读。
+- **设置**（管理员）：聊天模型和 key、画图视频模型、家人、外出访问、**手机提醒**、**旧功能**（旧派活功能的开关）。
+- 界面中文或英文，手机上也能用。`run_web.cmd` 同时在这台电脑的 Tailscale 地址上监听（`--remote`），出门在外用自己的手机也能打开；
   只放行这台电脑和你自己的 Tailscale 设备（加 `--lan` 还放行家里的局域网）。
+
+## MCP 工具
+
+`python -m orch mcp --project 目录 [--data 目录] [--discussions 目录]` 是一个走 stdio 的 MCP（Model Context Protocol）服务，
+给 Claude Desktop、Cowork 或其他 MCP 客户端用（设置方法见上面第 4 步）。它提供这些工具：
+
+| 工具 | 用途 |
+| --- | --- |
+| `mao_list_briefs` | 你在讨论里批准的方案，新的在前：已批准、已领取或已完成 |
+| `mao_get_brief` | 要开发的方案：原始需求、你的修改和约束、批准的方案和验收标准、决定、被否掉的方案、风险和未解决的问题。领取后标成已领取，不会有人重复开工 |
+| `mao_report_progress` | 进度、阻碍、问题或完成（完成要附证据：测试命令、结果和提交）。MAO 只当作 Cowork 自己的说法记下来，只核对给出的提交是否存在 |
+| `office_sheet_ask` | 问这台电脑上的 Excel、WPS 或 CSV 表格 |
+| `office_doc` | 在这台电脑上起草、润色或按模板填写 Word |
+| `office_trace` | 资金追踪，只在本机计算，不用任何模型 |
+| `office_find` | 在这台电脑上的一堆文件里找词、名字或号码，不用任何模型 |
+| `orch_sessions` | 这台电脑上的 Claude Code、Codex 会话 |
+
+报告阻碍、问题或完成时，如果开了手机提醒，会马上推送一条（不带报告内容）。`office_trace` 和 `office_find` 默认只返回数量和文件位置，
+要细节才返回内容。方案从讨论文件夹里读：`--discussions 目录`，否则 `--data 目录` 下的 `discussions`，否则 `MAO_DISCUSS_DIR`，
+否则 `<MAO_WEB_DATA 或 .maoweb>/discussions`，也就是网页版存讨论的地方。
+
+
+打开旧的派活功能时，还会列出 14 个 `orch_*` 任务工具。
+
+## 手机提醒
+
+有事等你时，MAO 往 ntfy App（iOS 和 Android，不用注册账号）推一句话。它只看，从不点击、回答或批准任何东西。
+
+- **讨论**：阶段小结好了等你决定；讨论停下了（出错或中断）；或者 25 分钟没有动静（可在 21 到 240 之间调），可能卡住了。
+- **Cowork**：通过 `mao_report_progress` 报告阻碍、问题或完成，马上推送。
+- **Cowork 可能停了**（默认关）：领走的方案 6 小时（1 到 72）没有回报。这是弱信号，提醒里也这么写：Cowork 可能停了，也可能还在做。
+- **Claude Code 等你批准**：Claude Code 在等权限，或等你回答它的问题。
+- **Claude Code 做完一轮、停下来等你**（默认关）：每次回答后都会有，容易太多。
+- 最近 3 分钟内你在这台电脑上动过键盘或鼠标，就不发 Claude Code 的提醒（Windows；可以调，0 = 总是发）。
+
+在网页版 设置 → 手机提醒 里设置（开关、主题、测试提醒、提醒哪些事、提醒的语言），或者用 `python -m orch notify setup` 和
+`python -m orch notify test`。`python -m orch notify status` 显示设置和最近的提醒。10 分钟内最多发 10 条；发送失败的在 1、5、15、60
+分钟后重试，最多 2 小时（Claude Code 的提醒只重试 10 分钟）。
+
+**隐私**：提醒里只写发生了什么和一个短编号（例如 DS-0003，或会话编号的开头），不会有需求、模型的回答、报告内容、文件内容、
+文件夹或项目名、密钥或个人信息。ntfy.sh 是别人的服务器，知道主题名的人都能收到提醒，所以主题是唯一的秘密：MAO 会生成一个随机的，
+随时可以换一个新的（换了以后手机上要重新订阅）。也可以用自己的 ntfy 服务器：填上服务器地址，需要的话再填访问令牌
+（`notify setup --token` 输入时不显示；它和 API key 存在一起，在 Windows 上加密，不写进配置文件，也不会发到浏览器）。
+服务器地址里不能带用户名或密码。
+
+**Claude Code 钩子**：`python -m orch notify hook install`（或在 设置 → 手机提醒 里点「安装」）往 Claude Code 的 `settings.json`
+（在 `CLAUDE_CONFIG_DIR` 里，否则在 `~/.claude`）加一个 `Notification` 钩子。改之前先把原文件复制成 `settings.json.bak-<日期>-<时间>`，
+别的钩子都保留。再装一次不会有改动；`python -m orch notify hook uninstall` 只移除 MAO 自己的那一条，`hook status` 显示状态。
+钩子不会往 Claude Code 里写回任何东西。在 Cowork 和 Claude Desktop 的会话里是否有效还没有验证。要试的话，先打开手机提醒，
+把「你在这台电脑前时不发 Claude Code 的提醒」设成 0（或者 3 分钟内不碰键盘鼠标），再让 Claude Code 要一次权限。
+钩子用 exec 形式的 `args` 启动 Python，需要支持它的 Claude Code 版本：如果没收到，`notify status` 里也没有 `via hook` 的记录，
+就运行 `claude update`。如果钩子运行时闪出一个黑窗口，就用 `--python <python.exe 所在的文件夹>\pythonw.exe` 重新安装；
+以后再安装（包括在网页上点「安装」）会保留这个 Python，`hook status` 也显示已安装。
+
+**检查在哪里运行**：在网页版里，每分钟一次。网页版没开时，Cowork 的报告和 Claude Code 的提醒照样马上推送，但发送失败的不会重试，
+讨论也没人盯着。
 
 ## 常用命令
 
+`python -m orch <命令>`（`pip install -e .` 之后也可以直接用 `orch <命令>`）：
+
 | 命令 | 用途 |
 | --- | --- |
-| `task add / list / show / retry / cancel / accept` | 管理任务 |
-| `run [--jobs N] [--auto-merge]` | 运行排队的任务；改不同文件的任务可以并行 |
-| `plan "目标"` / `plan approve P-0001` | 只读规划，拆成任务，你批准后才建 |
-| `decide "问题"` | 两家各出方案、互相点评、裁判写决策记录 |
-| `context ID` / `context --title ...` | 某次调用实际给了（或将会给）模型什么 |
-| `memory init / show / commit` | 项目记忆 |
-| `agents`、`agents pause / resume 池名`、`agents swap 任务 池名` | 总控面板：每个 agent 的状态和用量；暂停、恢复、换人 |
+| `doctor` | 检查 Python、git 和各个命令行工具 |
 | `sessions [--days N] [--all]` | 本机的 Claude Code / Codex 会话，包括你手动开的（只读） |
-| `report`、`route suggest / apply` | 各类任务在各个池上的成本和质量；路由建议 |
 | `sheet show / ask / run 文件` | 问 Excel / CSV 表格；`run` 不用模型，按保存的计划重算 |
 | `doc draft / polish / fill / show` | 起草、修改或按模板填写 Word（`--from` 材料，`--style plain / gongwen` 版式） |
 | `trace 流水文件或文件夹 [--days N] [--known 名单] [--col 角色=列名]` | 资金追踪，只在本机计算 |
 | `find 文件夹 词…… [--type 身份证/手机/银行卡/邮箱] [--all]` | 在一堆文件里找信息，只在本机查 |
-| `office [sensitive on / off]` | 办公设置：敏感模式、自己要隐藏的词 |
-| `handoff export` | 生成项目交接文件，给新的聊天会话读 |
-| `lang [zh/en/ja]` | 切换 orch 提示的语言 |
-| `key set / list / remove 服务商`、`connect [服务商]` | 用你自己的模型账号 |
-| `mcp --project 目录` | MCP 服务：在 Claude Desktop 等聊天应用里查看、派发、运行任务 |
-| `api check 池名`、`usage rescan`、`status`、`merge`、`breaker` | 维护 |
+| `office [sensitive on / off]` | 办公设置（敏感模式、自己要隐藏的词）和办公功能用了多少次、多少 token |
+| `key set / list / remove 服务商`、`connect` | 你自己的 API key（Windows 上加密保存）；现在能用哪些模型 |
+| `api check 池名` | 发一次极小的调用，检查 API key |
+| `mcp --project 目录 [--data 目录] [--discussions 目录]` | 给 Cowork 和 Claude Desktop 用的 MCP 服务 |
+| `notify status / setup / off / test`、`notify hook install / uninstall / status` | 手机提醒和 Claude Code 钩子 |
+| `legacy [on / off / status]` | 旧派活功能的开关 |
+| `lang [zh / en / ja]` | orch 提示的语言（只想这一次换，就加 `--lang en`） |
+
+办公功能用你自己的 API key（DeepSeek、GPT、Claude、千问、Gemini、豆包）：用 `python -m orch key set deepseek` 保存（输入时不显示），
+或者设置对应的环境变量（`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`DASHSCOPE_API_KEY`、`GEMINI_API_KEY`、`ARK_API_KEY`）。
+老格式（.doc、.wps、.rtf、.xls、.et）会先用电脑上装的 Word / Excel、WPS 或 LibreOffice 转换，原文件不动。脱敏能识别常见格式
+（身份证号、手机号、银行卡号、座机、邮箱、「联系人：」这类标签后面的姓名、你用 `--mask` 指定的词），不能保证找全：
+工作文件发给外部模型前先确认单位规定，涉密文件一律不要用。
+
+## 旧的派活功能（旧功能，默认关闭）
+
+0.6.0 以前，MAO 自己给编程 agent 派活：路由阶梯先把任务交给合适的最便宜的模型（Claude Code、Codex、Gemini CLI、
+带 DeepSeek 等模型的 opencode，或直接 API），客观失败时换更强的；每个任务一个 git worktree，带 checkpoint 和交接说明；
+验收命令决定成败；`plan` 和 `decide` 负责规划和方案辩论；网页版的「项目」页；以及 `orch_*` MCP 任务工具。
+现在开发交给 Cowork，所以这些默认关闭。没有删掉任何东西，数据都保留。
+
+打开方法：网页版 设置 → 旧功能，或 `python -m orch legacy on`，或设置环境变量 `MAO_LEGACY_DISPATCH=1`
+（`0` 强制关闭；设了这个环境变量，别的地方就改不了开关）。关闭时，这些命令只打印一行提示并返回 2，网页版不显示「项目」页，
+MCP 服务也不提供这些工具。
+
+它的命令：`init`、`task add / list / show / retry / cancel / accept`、`run [--jobs N] [--auto-merge]`、`status`、`plan`、
+`decide`、`context`、`memory`、`merge`、`agents [pause / resume / swap]`、`report`、`route suggest / apply`、`usage rescan`、
+`breaker`、`handoff export`、`demo`、`handoff-test`、`probe`，以及 `connect 服务商`（给项目加一个模型）。每个项目的设置在它的
+`.agents/orch.toml` 里；`examples/task.example.toml` 是一个任务文件的例子（`task add -f`）。
 
 ## 安全
 
-- 编排器从不改动你自己的工作目录，合并在单独的 integration worktree 里进行。
-- agent 会在自己的 worktree 里执行任意命令，请只用在你自己的仓库上。
-- 编排器不读取、不复制任何登录凭证，命令行工具各自用自己的登录。
+- 讨论用的模型只读运行：Codex 用 `--sandbox read-only`，Claude Code 只开 Read、Glob、Grep 这几个读文件的工具。
+  它们能读关联的项目文件夹，改不了任何东西。
+- MAO 从不替你批准、点击或回答任何东西：手机提醒只报告，Claude Code 钩子只推送，Cowork 只开发你批准的方案。
+- MAO 不读取、不复制命令行工具的登录文件；会话列表只读时间、文件夹和 token 数。API key 和 ntfy 访问令牌在 Windows 上加密保存。
+- 网页版只放行这台电脑和你自己的 Tailscale 设备（加 `--lan` 还放行家里的局域网）。
+- 只在打开旧的派活功能时适用：agent 会在自己的 worktree 里执行任意命令，请只用在你自己的仓库上。你自己的工作目录不会被改动，
+  唯一的例外是「项目」页的「放进我的项目文件夹」按钮，而且只在你点它的时候。
 
 ## 更新记录
 
+- **0.6.0**：MAO 改成以讨论和决定为中心：GPT 和 Claude 在网页版里一轮轮讨论需求，由你拍板，Claude Cowork 通过 MCP
+  领取批准的方案（`mao_list_briefs`、`mao_get_brief`、`mao_report_progress`）。讨论等你决定、Cowork 遇到阻碍或有问题、
+  Claude Code 等你批准时，通过 ntfy 推送到手机。旧的派活功能（「项目」页、`orch task/run/plan/decide`、`orch_*` 任务工具）
+  默认关闭，可以重新打开；数据都保留。网页版里 0.5.0 的「分派给 Agent」和「写程序」换成了「项目」页（聊天里的「交给项目」、
+  「放进我的项目文件夹」），它属于旧的派活功能。
 - **0.5.0**：网页版公开（聊天、分派给 Agent、画图、视频、文档、写程序、Agent 面板，中文或英文）。`orch trace` 资金追踪、
   `orch find` 在一堆文件里找信息，都只在本机计算；MCP 服务提供 `office_trace` 和 `office_find`。
 - **0.4.0**：老格式的 .doc、.xls、.wps 能通过 Word、Excel、WPS 或 LibreOffice 打开；MCP 服务加了办公工具（`office_sheet_ask`、`office_doc`）；办公功能的调用次数和 token 会记下来，`orch office` 和 `orch report` 里能看到（只记数量，不记内容）。

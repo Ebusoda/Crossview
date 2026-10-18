@@ -24,6 +24,10 @@ class CodexAdapter(Adapter):
         cmd = [exe, "exec", *args]
         if self.model:
             cmd += ["-m", self.model]
+        if self.effort:
+            # no quotes around the value: codex reads a value that is not valid TOML as a plain string,
+            # and quotes would break on the Windows .cmd wrapper
+            cmd += ["-c", f"model_reasoning_effort={self.effort}"]
         if ctx.resume_session:
             # Verified with codex-cli 0.160.1: exec-level flags (--json, --sandbox) go before `resume`.
             cmd += ["resume", ctx.resume_session]

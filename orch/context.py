@@ -38,6 +38,8 @@ MODE_FILES = {
     "address_review": ["TASK.md", "PROGRESS.md", "REVIEW.md"],
     "review_takeover": ["TASK.md", "PROGRESS.md", "HANDOFF.md", "REVIEW.md"],
     "resolve_conflict": ["TASK.md", "PROGRESS.md", "CONFLICTS.md"],
+    "user_feedback": ["TASK.md", "PROGRESS.md", "REVIEW.md"],
+    "feedback_takeover": ["TASK.md", "PROGRESS.md", "HANDOFF.md", "REVIEW.md"],
 }
 KIND_TITLES = {
     "goal": "Project goal", "constraint": "Constraints", "architecture": "Architecture",
@@ -66,7 +68,7 @@ def estimate_tokens(text: str) -> int:
 def budget_class(task: Task, mode: str, cfg: dict) -> str:
     by_type = (cfg.get("class_by_type") or {}).get(task.type)
     cls = by_type or CLASS_BY_DIFFICULTY.get(task.difficulty, "normal")
-    if mode in ("takeover", "review_takeover") and _ORDER.index(cls) < 1:
+    if mode in ("takeover", "review_takeover", "feedback_takeover") and _ORDER.index(cls) < 1:
         cls = "normal"  # a takeover carries a HANDOFF note
     return cls
 

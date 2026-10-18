@@ -1,4 +1,3 @@
-"""MAO web: a small web app served from the owner's own PC (chat with a chosen model, and later
-images, video and coding tasks through orch). Standard library only, like orch."""
+"""MAO web: the family web app and the discussion page."""
 
-__version__ = "0.1.0"
+__version__ = "0.6.0"

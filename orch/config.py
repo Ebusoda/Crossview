@@ -193,13 +193,28 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return out
 
 
+# Planned task types that are code changes by another name: without their own [routing] entry they
+# follow code_change (so frontend/backend/... work goes to the coding agents, not to `default`).
+TYPE_ALIASES = {"frontend": "code_change", "backend": "code_change", "testing": "code_change",
+                "documentation": "code_change"}
+
+
+def route_type(routing: dict[str, Any], task_type: str) -> str:
+    """The [routing] key a task type uses: its own entry, else its alias's entry, else itself."""
+    if task_type not in routing and TYPE_ALIASES.get(task_type) in routing:
+        return TYPE_ALIASES[task_type]
+    return task_type
+
+
 class Config:
     def __init__(self, project: Path, data: dict[str, Any]):
         self.project = project
         self.data = data
 
     @classmethod
-    def load(cls, project: Path) -> "Config":
+    def load(cls, project: Path, apply_identity: bool = True) -> "Config":
+        """apply_identity=False reads the config without touching the process-wide git identity
+        (for code that only displays it, such as the web page)."""
         path = project / AGENTS_DIR / CONFIG_NAME
         user: dict[str, Any] = {}
         if path.exists():
@@ -211,10 +226,11 @@ class Config:
         data.setdefault("routing", copy.deepcopy(DEFAULTS["routing"]))
         data.setdefault("pools", copy.deepcopy(DEFAULTS["pools"]))
         data["executors"] = _deep_merge(DEFAULTS["executors"], user.get("executors", {}))
-        from . import workspace  # orch's own commits follow [git]
+        if apply_identity:
+            from . import workspace  # orch's own commits follow [git]
 
-        g = data.get("git", {})
-        workspace.set_identity(str(g.get("name") or ""), str(g.get("email") or ""))
+            g = data.get("git", {})
+            workspace.set_identity(str(g.get("name") or ""), str(g.get("email") or ""))
         return cls(project, data)
 
     # -- paths -------------------------------------------------------------
@@ -252,7 +268,7 @@ class Config:
 
     def route_for(self, task_type: str, difficulty: str) -> list[str]:
         routing = self.data["routing"]
-        by_type = routing.get(task_type)
+        by_type = routing.get(route_type(routing, task_type))
         if isinstance(by_type, dict):
             if difficulty in by_type:
                 return list(by_type[difficulty])

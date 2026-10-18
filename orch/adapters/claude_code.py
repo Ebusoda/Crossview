@@ -30,6 +30,8 @@ class ClaudeCodeAdapter(Adapter):
             cmd += ["--tools", ",".join(ro), "--allowedTools", "Read,Glob,Grep"]
             if self.model:
                 cmd += ["--model", self.model]
+            if self.effort:
+                cmd += ["--effort", self.effort]
             if ctx.resume_session:
                 cmd += ["--resume", ctx.resume_session]
             return cmd
@@ -42,6 +44,8 @@ class ClaudeCodeAdapter(Adapter):
             cmd += ["--allowedTools", ",".join(tools)]
         if self.model:
             cmd += ["--model", self.model]
+        if self.effort:
+            cmd += ["--effort", self.effort]
         if ctx.resume_session:
             cmd += ["--resume", ctx.resume_session]
         return cmd

@@ -92,6 +92,11 @@ class Adapter:
         return self.pool_cfg.get("model", "") or ""
 
     @property
+    def effort(self) -> str:
+        """Reasoning effort for the CLI (`effort = "high"` in the pool); empty = the CLI's own default."""
+        return str(self.pool_cfg.get("effort") or "")
+
+    @property
     def vendor(self) -> str:
         """`vendor = "..."` in the pool overrides the executor's default (e.g. Claude Code on a
         non-Anthropic model)."""

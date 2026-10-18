@@ -1,24 +1,32 @@
 """Command line: python -m orch [-p PROJECT] <command> ...
 
 Commands
-  init            初始化项目（.agents/、配置、integration 分支）
   doctor          检查 Python / git / 各 CLI 是否可用
+  sessions        本机的 Claude Code / Codex 会话（包括你手动开的）：时间、项目、用量；只读，不看对话内容
+  key set|list PROVIDER   save your own API keys
+  connect         which models you can use
+  mcp --project DIR [--data DIR]   MCP 服务：给 Claude Cowork / Claude Desktop 用的工具（讨论方案、办公、ChatGPT 桥接）
+  api check POOL  v0.3：检查直接 API 池（环境变量里的 key、模型列表、一次极小的调用）
+  sheet / doc / trace / find / office   办公：问表格、写和改 Word、资金追踪、在文件里找信息
+  legacy on|off|status   旧的派活功能（默认关闭）
+  notify status|setup|off|test|hook   手机提醒（ntfy）：讨论等你决定、Cowork 有阻碍、Claude Code 等你批准
+  lang [zh|en|ja] 消息的语言
+
+The old task dispatch (legacy, off by default; python -m orch legacy on turns it on)
+  init            初始化项目（.agents/、配置、integration 分支）
   task add|list|show|retry|accept|cancel
   plan "目标"     M4：Manager 只读分析后拆成任务；plan approve P-0001 确认后才会建任务
   decide "问题"   M5：两家各出方案、互相点评、裁判写决策记录（ADR）；decide accept|reject D-0001
   run             运行排队中的任务
   status          任务、熔断器、今日用量
-  sessions        本机的 Claude Code / Codex 会话（包括你手动开的）：时间、项目、用量；只读，不看对话内容
   agents [pause|resume|swap]   总控面板：每个 agent 在做什么、用量、成功率、最近报错；暂停 / 恢复 / 换人
   report          执行记录报表：类型 × 池的首次通过率、每个成功任务的成本
   context ID      某次运行实际注入了哪些上下文：各部分 token、预算、检索、压缩（ID = T-/R-xxxx 或 latest）
   memory init|show|commit   项目记忆（docs/project/，提交在 integration 分支）
   handoff export  项目交接文件（Checkpoint）：给新的 AI 会话读，不调用模型
-  key set|list PROVIDER   save your own API keys
-  connect [PROVIDER]      which models you can use; add one to the project
-  mcp --project DIR   MCP 服务：在聊天应用里查看和派发任务
+  connect PROVIDER        add a model to the project
   route suggest|apply   v0.3：按执行记录给路由建议，你同意后再写进配置
-  api check POOL  v0.3：检查直接 API 池（环境变量里的 key、模型列表、一次极小的调用）
+  usage rescan    v0.3：从保存的事件流重算历史运行的 token
   merge T-xxxx    把验收通过的任务合并进 integration 分支
   breaker reset   手动关闭熔断器
   breaker open    手动暂停一个池
@@ -39,7 +47,7 @@ from .config import Config
 from .models import Task, TaskStatus
 from .proc import resolve_command, run_capture
 from .scheduler import OrchError, Orchestrator, init_project
-from . import i18n
+from . import i18n, legacy
 from .i18n import tr
 
 
@@ -115,10 +123,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             vcode, vout = run_capture([cmd, "--version"], timeout=30)
             line += f"   [{(vout.splitlines() or ['?'])[0][:60]}]"
         print(line)
-    if (project / ".agents").is_dir():
-        print(tr("\n项目    : {0}（已初始化）  worktrees -> {1}", project, cfg.worktrees_dir))
-    else:
-        print(tr("\n项目    : {0}（未初始化，运行 orch init）", project))
+    if legacy.enabled():   # the project line is about the old dispatch (orch init is refused while it is off)
+        if (project / ".agents").is_dir():
+            print(tr("\n项目    : {0}（已初始化）  worktrees -> {1}", project, cfg.worktrees_dir))
+        else:
+            print(tr("\n项目    : {0}（未初始化，运行 orch init）", project))
     return 0 if ok else 1
 
 
@@ -200,10 +209,9 @@ def cmd_task(args: argparse.Namespace) -> int:
         if args.from_start:
             t.ladder = 0
         orch.store.save_task(t)
+        orch.store.log("task_retried", "", task_id=t.id)  # the run cap and budget start over from here
         print(tr("{0} 已重新排队（级别 {1}）", t.id, t.ladder))
     elif args.task_cmd == "cancel":
-        from . import workspace as ws
-
         for tid in args.ids:
             t = orch.store.get_task(tid)
             if not t:
@@ -212,24 +220,18 @@ def cmd_task(args: argparse.Namespace) -> int:
             if t.status in (TaskStatus.RUNNING, TaskStatus.MERGED):
                 print(tr("{0} 状态是 {1}，不能取消", tid, t.status.value))
                 continue
-            if t.worktree and Path(t.worktree).exists():
-                ws.remove_worktree(orch.project, Path(t.worktree))  # the branch is kept
-            t.status, t.note = TaskStatus.CANCELLED, "cancelled by user"
-            orch.store.save_task(t)
-            orch.store.log("task_cancelled", "", task_id=tid)
+            orch.cancel(tid)  # the worktree goes, the branch is kept
             print(tr("{0} 已取消: {1}", tid, t.title))
     elif args.task_cmd == "accept":
         t = orch.store.get_task(args.id)
         if not t:
             print(tr("没有 {0}", args.id))
             return 1
-        work = orch.store.runs_for(t.id, kind="work")
-        if t.status not in (TaskStatus.BLOCKED, TaskStatus.FAILED) or not work or work[-1].verified is not True:
-            print(tr("{0} 状态是 {1}，最后一次运行验收{2}。只有验收通过、但被审查卡住的任务可以人工放行。", t.id, t.status.value, tr('通过') if work and work[-1].verified else tr('未通过')))
+        try:
+            orch.accept(t.id)
+        except OrchError as e:
+            print(e)
             return 1
-        t.status, t.note = TaskStatus.VERIFIED, "accepted by a human despite the review"
-        orch.store.save_task(t)
-        orch.store.log("task_accepted", t.note, task_id=t.id)
         print(tr("{0} 已人工放行。合并: python -m orch -p \"{1}\" merge {2}", t.id, orch.project, t.id))
     return 0
 
@@ -570,7 +572,121 @@ def cmd_route(args: argparse.Namespace) -> int:
 def cmd_mcp(args: argparse.Namespace) -> int:
     from . import mcp
 
-    return mcp.main(args.projects or [str(_project(args))])
+    return mcp.main(args.projects or [str(_project(args))], discussions=args.discussions or None,
+                    data=args.data or None)
+
+
+def cmd_legacy(args: argparse.Namespace) -> int:
+    if args.action in ("on", "off"):
+        try:
+            legacy.set_enabled(args.action == "on", by="cli")
+        except ValueError as e:
+            raise OrchError(tr(str(e))) from None
+        print(tr("已打开旧的派活功能：项目页、交给项目和 task / run / plan 等命令又能用了。") if args.action == "on"
+              else tr("已关闭旧的派活功能。数据都保留；已经在运行的任务会自己跑完。"))
+        return 0
+    st = legacy.state()
+    print((tr("旧的派活功能：打开") if st["enabled"] else tr("旧的派活功能：关闭"))
+          + (tr("（由环境变量 {0} 决定）", legacy.ENV) if st["source"] == "env" else ""))
+    return 0
+
+
+def _hook_label(state: str) -> str:
+    return {"installed": tr("已安装"),
+            "outdated": tr("需要重新安装（MAO 换了位置或 Python 变了）：python -m orch notify hook install"),
+            "missing": tr("没有安装（python -m orch notify hook install）"),
+            "no_claude": tr("没有找到 Claude Code 的设置文件夹"),
+            "broken": tr("settings.json 读不了，没有改动它")}.get(state, state)
+
+
+def _read_secret(prompt: str) -> str:
+    import getpass
+
+    if sys.stdin is not None and sys.stdin.isatty():
+        return getpass.getpass(prompt)
+    return sys.stdin.readline().strip() if sys.stdin else ""   # piped in: never wait on a console
+
+
+def cmd_notify(args: argparse.Namespace) -> int:
+    from . import datadir, notify, notify_hook
+
+    data = datadir.data_dir()
+    try:
+        if args.action == "hook":
+            what = args.hook_action or "status"
+            if what == "install":
+                r = notify_hook.install(data=data, python=args.python or None)
+                if not r["changed"]:
+                    print(tr("Claude Code 钩子已经装好，没有改动。"))
+                elif r["backup"]:
+                    print(tr("已安装 Claude Code 钩子：{0}（原文件备份在 {1}）", r["path"], r["backup"]))
+                else:
+                    print(tr("已安装 Claude Code 钩子：{0}", r["path"]))
+            elif what == "uninstall":
+                r = notify_hook.uninstall()
+                print(tr("已移除 Claude Code 钩子（原文件备份在 {0}）", r["backup"]) if r["changed"]
+                      else tr("没有找到 MAO 的 Claude Code 钩子，没有改动。"))
+            else:
+                print(tr("Claude Code 钩子：{0}", _hook_label(notify_hook.status(data=data, python=args.python or None))))
+            return 0
+        if args.action == "setup":
+            changes: dict = {}
+            if args.server is not None:
+                changes["server"] = notify.clean_server(args.server)   # checked before anything is written
+            notify.ensure_topic(data)
+            if args.alert_lang:
+                changes["lang"] = args.alert_lang
+            if args.new_topic:
+                changes["topic"] = notify.new_topic()
+            if changes:
+                notify.save(changes, data)
+            if args.token:
+                value = _read_secret(tr("ntfy 访问令牌（直接回车 = 清除）："))
+                notify.set_token(value, data)
+                print(tr("已保存访问令牌。") if value.strip() else tr("已清除访问令牌。"))
+            cfg = notify.save({"enabled": True}, data)
+            print(tr("已开启手机提醒。"))
+            if args.new_topic:
+                print(tr("已换了新的主题：手机上要重新订阅。"))
+            print(tr("服务器：{0}", cfg["server"]))
+            print(tr("主题：{0}", cfg["topic"]))
+            print(tr("在手机上订阅：{0}", notify.subscribe_url(cfg)))
+            print(tr("1. 在手机上安装 ntfy（App Store 或 Google Play 搜 ntfy）"))
+            print(tr("2. 打开 ntfy，点 +，主题填上面这一串；用自己的服务器时打开「使用其他服务器」，填服务器地址"))
+            print(tr("3. 运行 python -m orch notify test"))
+            return 0
+        if args.action == "off":
+            notify.save({"enabled": False}, data)
+            print(tr("已关闭手机提醒。"))
+            return 0
+        if args.action == "test":
+            r = notify.send_test(data, via="cli")
+            if r["ok"]:
+                print(tr("测试提醒已发出。"))
+                return 0
+            print(tr("发送失败：{0}", tr(r["error"])), file=sys.stderr)
+            return 1
+    except ValueError as e:
+        raise OrchError(tr(str(e))) from None
+    cfg = notify.load(data)                     # status: reads only
+    print(tr("手机提醒：已开启") if cfg["enabled"] else tr("手机提醒：未开启"))
+    print(tr("服务器：{0}", cfg["server"]))
+    if cfg["topic"]:
+        print(tr("主题：{0}", cfg["topic"]))
+        print(tr("在手机上订阅：{0}", notify.subscribe_url(cfg)))
+    else:
+        print(tr("主题：还没有（运行 python -m orch notify setup）"))
+    print(tr("访问令牌：已设置") if notify.token(data) else tr("访问令牌：没有"))
+    groups = [g for g in notify.GROUPS if cfg["events"].get(g)]
+    print(tr("提醒哪些事：{0}", ", ".join(groups) if groups else "-"))
+    print(tr("Claude Code 钩子：{0}", _hook_label(notify_hook.status(data=data))))
+    last = notify.recent(data, 5)
+    print(tr("最近的提醒：") if last else tr("最近的提醒：没有"))
+    for r in last:
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(float(r["at"] or 0)))
+        print(f"  {when}  {r['kind']}  {r['ref'] or '-'}  {'✓' if r['ok'] else r['error']}  (via {r['via'] or '?'})")
+    print(tr("提醒的重试、讨论和 ChatGPT 检查在网页版里运行：请保持网页版开着（run_web.cmd）。"))
+    return 0
 
 
 def cmd_key(args: argparse.Namespace) -> int:
@@ -596,7 +712,7 @@ def cmd_connect(args: argparse.Namespace) -> int:
     cfg = Config.load(_project(args))
     try:
         lines = connect.connect(cfg, args.provider, args.purpose, args.model or "") if args.provider \
-            else connect.status(cfg)
+            else connect.status(cfg, dispatch=legacy.enabled())
     except ValueError as e:
         raise OrchError(str(e)) from None
     print("\n".join(lines))
@@ -1031,7 +1147,8 @@ def _office_flags(p: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="orch", description="MAO multi-agent orchestrator")
+    p = argparse.ArgumentParser(prog="orch", description="MAO: GPT-Claude discussions, owner decisions and tools "
+                                "for Claude Cowork (the old task dispatch is off by default)")
     p.add_argument("-p", "--project", default=".", help=tr("项目目录（默认当前目录）"))
     p.add_argument("--lang", choices=list(i18n.LANGS), help=tr("language of the messages: zh, en or ja (this run only)"))
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1209,9 +1326,27 @@ def build_parser() -> argparse.ArgumentParser:
     of.add_argument("value", nargs="?")
     of.set_defaults(fn=cmd_office)
 
-    mc = sub.add_parser("mcp", help=tr("MCP 服务（stdio）：在 Claude / ChatGPT 等聊天应用里查看和派发 orch 任务"))
+    mc = sub.add_parser("mcp", help=tr("MCP 服务（stdio）：给 Claude Cowork / Claude Desktop 用的工具（讨论方案、办公、ChatGPT 桥接）"))
     mc.add_argument("--project", dest="projects", action="append", help=tr("要管理的项目目录，可多次指定（默认 -p 的项目）"))
+    mc.add_argument("--data", default="", help="MAO's data folder: legacy switch, phone alerts, keys (default: "
+                    "MAO_WEB_DATA, else <MAO folder>/.maoweb); discussions default to DIR/discussions")
+    mc.add_argument("--discussions", default="", help="folder of MAO discussions (default: MAO_DISCUSS_DIR, else "
+                    "<MAO_WEB_DATA or .maoweb>/discussions)")
     mc.set_defaults(fn=cmd_mcp)
+
+    lgc = sub.add_parser("legacy", help=tr("旧的派活功能（默认关闭）：legacy on | off | status"))
+    lgc.add_argument("action", nargs="?", choices=["on", "off", "status"], default="status")
+    lgc.set_defaults(fn=cmd_legacy)
+
+    nt = sub.add_parser("notify", help=tr("手机提醒（ntfy）：notify status | setup | off | test | hook install|uninstall|status"))
+    nt.add_argument("action", nargs="?", choices=["status", "setup", "off", "test", "hook"], default="status")
+    nt.add_argument("hook_action", nargs="?", choices=["install", "uninstall", "status"])
+    nt.add_argument("--server", help=tr("ntfy 服务器地址（默认 https://ntfy.sh；自建服务器才需要改）"))
+    nt.add_argument("--new-topic", action="store_true", help=tr("换一个新的主题（手机上要重新订阅）"))
+    nt.add_argument("--token", action="store_true", help=tr("输入 ntfy 访问令牌（不显示；直接回车 = 清除）"))
+    nt.add_argument("--lang", dest="alert_lang", choices=["zh", "en"], help=tr("提醒的语言：zh 或 en"))
+    nt.add_argument("--python", help=tr("钩子用的 Python 程序（例如 pythonw.exe 的完整路径，就不会弹出窗口）"))
+    nt.set_defaults(fn=cmd_notify)
 
     ro = sub.add_parser("route", help=tr("v0.3：按执行记录给路由建议（suggest），你同意后再改配置（apply S-n）"))
     ro.add_argument("action", choices=["suggest", "apply"])
@@ -1264,6 +1399,10 @@ def main(argv: list[str] | None = None) -> int:
     if "--lang" in argv[:-1]:  # before the parser is built: its help texts are translated too
         i18n.set_lang(argv[argv.index("--lang") + 1])
     args = build_parser().parse_args(argv)
+    if legacy.gated(args.cmd, args) and not legacy.enabled():
+        print(tr("旧的派活功能已关闭（{0} 属于它）。要用的话：python -m orch legacy on，或在网页 设置 → 旧功能 里打开。",
+                 args.cmd if args.cmd != "connect" else "connect " + args.provider), file=sys.stderr)
+        return 2
     try:
         return int(args.fn(args) or 0)
     except OrchError as e:

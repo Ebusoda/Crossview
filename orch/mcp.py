@@ -1,33 +1,64 @@
-"""MCP server: use orch from a chat app (Claude Desktop, ChatGPT and other MCP clients).
+"""MCP server: MAO's tools for Claude Cowork and Claude Desktop (any MCP client).
 
-    python -m orch mcp --project F:\\work\\repo-a --project F:\\work\\repo-b
+    {"mcpServers": {"orch": {"command": "cmd",
+                             "args": ["/c", "cd /d F:\\MAO && python -m orch mcp --project F:\\MAO"]}}}
 
-Speaks the Model Context Protocol over stdio (JSON-RPC 2.0, one message per line). The chat model
-can look at projects and tasks, add tasks and start runs; orch itself still decides routing,
-acceptance and merging, so the chat model never becomes the control centre. Runs start as separate
-`python -m orch run` processes and keep going when the chat ends. High-risk tasks still wait for a
-human merge, exactly as on the command line.
+`cmd /c cd /d` makes the MAO folder the working directory, so `python -m orch` is found whatever folder the
+client starts in. Speaks the Model Context Protocol over stdio (JSON-RPC 2.0, one message per line).
+
+The tools Cowork uses:
+- briefs from MAO's GPT-Claude discussions (mao_list_briefs, mao_get_brief, mao_report_progress): the owner
+  approved a plan in the web app; Cowork takes it, develops it itself and reports back (a blocker, question or done
+  report also sends the owner a phone alert when alerts are on: orch/notify.py; never the report's text);
+- office work on files of this PC (office_sheet_ask, office_doc, office_trace, office_find);
+- the Claude Code / Codex sessions list (orch_sessions);
+- the GPT bridge (gpt_desktop_prepare, gpt_desktop_result), when this copy of MAO has gptbridge.
+
+The old task tools (orch_add_task, orch_run, orch_merge ... : MAO's own task dispatch) are listed only while the
+legacy dispatch is on (orch/legacy.py; off by default). While it is off they are not offered, and a call is
+refused with a hint how to turn it on.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sqlite3
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any, Callable
+
+from . import __version__, datadir, legacy, notify
 
 PROTOCOL = "2025-06-18"
 SUPPORTED = ("2025-06-18", "2025-03-26", "2024-11-05")
 ROOT = Path(__file__).resolve().parents[1]
+GPT_TOOLS = ("gpt_desktop_prepare", "gpt_desktop_result")
+HAVE_GPTBRIDGE = importlib.util.find_spec("gptbridge") is not None   # not every copy of MAO has the GPT bridge
+NO_GPTBRIDGE = "the GPT bridge (gptbridge) is not part of this copy of MAO"
 
 
 class OrchTools:
-    def __init__(self, projects: list[str], python: str | None = None):
+    def __init__(self, projects: list[str], python: str | None = None, discussions: Path | str | None = None,
+                 data: Path | str | None = None, sender: notify.Sender | None = None, background: bool = True):
+        from . import discuss
+
         self.projects = {Path(p).resolve().name: Path(p).resolve() for p in projects}
         self.python = python or sys.executable
         self.running: dict[str, subprocess.Popen] = {}
+        # MAO's data folder (the legacy switch lives there); never guessed from the discussions folder
+        self.data = Path(data) if data else datadir.data_dir()
+        # MAO's GPT-Claude discussions (files under a lock, no state.db); touches no disk until a tool is used
+        self.store = discuss.Store(Path(discussions) if discussions
+                                   else self.data / "discussions" if data else discuss.default_root())
+        # phone alerts for Cowork's blocker / question / done reports (orch/notify.py): sent in a thread that
+        # close() waits for before the process exits; tests pass a fake sender and background=False
+        self.sender = sender
+        self.background = background
+        self._pushes: list[threading.Thread] = []
 
     # -- helpers -------------------------------------------------------------------
     def _path(self, project: str) -> Path:
@@ -38,11 +69,15 @@ class OrchTools:
     def _orch(self, project: str, *args: str, timeout: float = 120) -> str:
         p = subprocess.run([self.python, "-m", "orch", "-p", str(self._path(project)), *args],
                            cwd=str(ROOT), capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL,
-                           env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+                           env=_child_env())
         out = (p.stdout + p.stderr).decode("utf-8", errors="replace").strip()
         if p.returncode != 0:
             raise ValueError(out[-2000:] or f"orch exited with {p.returncode}")
         return out[-8000:]
+
+    def _project_path(self, name: str) -> Path | None:
+        """The resolved folder of a registered project, None when the name is not one of them."""
+        return self.projects.get(name) if name else None
 
     def _db(self, project: str) -> sqlite3.Connection:
         db = self._path(project) / ".agents" / "state.db"
@@ -109,8 +144,7 @@ class OrchTools:
         log = self._path(project) / ".agents" / "mcp_run.log"
         with open(log, "ab") as f:
             proc = subprocess.Popen(args, cwd=str(ROOT), stdout=f, stderr=subprocess.STDOUT,
-                                    stdin=subprocess.DEVNULL, env={**os.environ, "PYTHONIOENCODING": "utf-8"},
-                                    **_detached())
+                                    stdin=subprocess.DEVNULL, env=_child_env(), **_detached())
         self.running[project] = proc
         return {"started": True, "pid": proc.pid, "log": str(log),
                 "note": "runs in the background; check progress with orch_list_tasks / orch_task"}
@@ -268,6 +302,80 @@ class OrchTools:
                             for h in res.hits[:200]]
         return body
 
+    # -- briefs from MAO's GPT-Claude discussions (the owner approved them; Cowork develops them) -------------
+    def list_briefs(self, project: str = "", state: str | None = None) -> dict:
+        from . import discuss_record
+
+        path = self._project_path(project)
+        return {"briefs": discuss_record.list_briefs(self.store, str(path) if path else None,
+                                                     "" if path else project, state or None)}
+
+    def get_brief(self, discussion_id: str, taker: str = "cowork") -> dict:
+        from . import discuss_record
+
+        return discuss_record.get_brief(self.store, discussion_id, taker or "cowork", take=True)
+
+    def report_progress(self, discussion_id: str, text: str, kind: str = "progress", evidence: str = "",
+                        commit: str = "") -> dict:
+        from . import discuss_record
+
+        out = discuss_record.report_progress(self.store, discussion_id, text, kind or "progress", evidence or "",
+                                             commit or "", by="cowork")
+        kind = str(kind or "progress").strip()
+        if kind in ("blocker", "question", "done") and out.get("entry_id"):
+            did = str(discussion_id).strip()
+            self._push(f"cowork_{kind}", f"brief:{did}:{out['entry_id']}", did)
+        return out
+
+    def _push(self, kind: str, key: str, ref: str) -> None:
+        """A phone alert for the owner, at once. Only the kind and the discussion id go out, never the report
+        text. Nothing at all (no thread) while alerts or the Cowork group are off; never fails the tool."""
+        try:
+            cfg = notify.load(self.data)
+            if not (cfg["enabled"] and cfg["events"].get(notify.GROUP[kind])):
+                return
+            at = time.time()
+
+            def send() -> None:
+                try:
+                    notify.notify(kind, key, ref=ref, at=at, data=self.data, sender=self.sender, via="mcp")
+                except Exception as e:  # noqa: BLE001
+                    print(f"MAO phone alerts: {type(e).__name__}: {e}"[:300], file=sys.stderr)
+
+            if not self.background:
+                send()
+                return
+            self._pushes = [t for t in self._pushes if t.is_alive()]
+            thread = threading.Thread(target=send, name="mao-push", daemon=True)
+            thread.start()
+            self._pushes.append(thread)
+        except Exception as e:  # noqa: BLE001
+            print(f"MAO phone alerts: {type(e).__name__}: {e}"[:300], file=sys.stderr)
+
+    def close(self, timeout: float = notify.SEND_TIMEOUT) -> None:
+        """Wait (at most `timeout` seconds in all) for pushes that are still being sent."""
+        deadline = time.monotonic() + max(0.0, timeout)
+        for thread in list(self._pushes):
+            thread.join(max(0.0, deadline - time.monotonic()))
+        self._pushes = [t for t in self._pushes if t.is_alive()]
+
+    # -- GPT in the ChatGPT desktop app (gptbridge): filled in here, sent by the owner -----------------
+    def gpt_desktop_prepare(self, task: str) -> dict:
+        from gptbridge import core
+
+        return core.prepare(task)
+
+    def gpt_desktop_result(self, task_id: str, wait: float = 30) -> dict:
+        from gptbridge import core
+
+        return core.result(task_id, wait)
+
+
+def _child_env() -> dict[str, str]:
+    # the old task tools are only reached while the legacy dispatch is on: the child CLI must not refuse them
+    # because it reads another data folder
+    return {**os.environ, "PYTHONIOENCODING": "utf-8", legacy.ENV: "1"}
+
 
 def _detached() -> dict:
     if sys.platform == "win32":
@@ -385,12 +493,59 @@ TOOLS: list[dict[str, Any]] = [
      "Only call it when the user asked for it.",
      "inputSchema": {"type": "object", "properties": {**_P, "task_id": {"type": "string"}},
                      "required": ["project", "task_id"]}},
+    # the same two tools as gptbridge/mcp.py (a test keeps them alike)
+    {"name": "gpt_desktop_prepare", "description": (
+        "Prepare a task for GPT (Codex) in the ChatGPT desktop app on the owner's Windows PC. Use it for work "
+        "that needs other programs' windows, the owner's browser, desktop settings or the whole screen, which you "
+        "cannot reach yourself. Write the whole job and exactly what GPT should report back in one go: GPT cannot "
+        "ask you anything. The task is only filled in and the ChatGPT window brought to the front; nothing is "
+        "sent. The owner reviews it and presses send in the ChatGPT window, so tell the owner to do that (pass on "
+        "the returned note, e.g. to paste a long task with Ctrl+V). Then poll gpt_desktop_result with the "
+        "returned task_id."),
+     "inputSchema": {"type": "object", "properties": {
+         "task": {"type": "string", "description": "the whole job for GPT, including what to report back"}},
+         "required": ["task"]}},
+    {"name": "gpt_desktop_result", "description": (
+        "State of a task from gpt_desktop_prepare: waiting_for_send (the owner has not pressed send yet: remind "
+        "them), working (reply is GPT's latest message), done (reply is GPT's final answer), stopped, failed "
+        "(reply is the error) or expired (not sent within 30 minutes). Waits up to `wait` seconds for the task "
+        "to finish; call it again while the status is waiting_for_send or working."),
+     "inputSchema": {"type": "object", "properties": {
+         "task_id": {"type": "string", "description": "task_id returned by gpt_desktop_prepare"},
+         "wait": {"type": "number", "description": "seconds to wait for the task to finish (default 30, max 50)",
+                  "default": 30, "minimum": 0, "maximum": 50}},
+         "required": ["task_id"]}},
+    # MAO V2: briefs the owner approved in a GPT-Claude discussion (Cowork pulls them; MAO never pushes)
+    {"name": "mao_list_briefs", "description": "Plans the owner approved in MAO's GPT-Claude discussions, newest "
+     "first, with their state: approved (nobody has taken it yet), taken (someone is working on it: do not start it "
+     "again), done.",
+     "inputSchema": {"type": "object", "properties": {
+         "project": {"type": "string", "description": "optional project name"},
+         "state": {"type": "string", "enum": ["approved", "taken", "done"]}}}},
+    {"name": "mao_get_brief", "description": "The approved brief to develop: original requirement (verbatim), owner's "
+     "changes and constraints, approved plan with acceptance criteria, architecture decisions and consensus, open "
+     "disagreements, rejected plans not to re-introduce, risks and open questions. Taking it marks it taken by you so "
+     "nobody else starts the same work; call it once, with the discussion id the owner gives you. Develop it "
+     "yourself; do not queue it with orch_add_task or orch_run.",
+     "inputSchema": {"type": "object", "properties": {
+         "discussion_id": {"type": "string", "description": "e.g. DS-0003"},
+         "taker": {"type": "string", "description": "who takes it, e.g. cowork (default)"}},
+         "required": ["discussion_id"]}},
+    {"name": "mao_report_progress", "description": "Report back on a brief you took: progress, blocker, question (for "
+     "the owner) or done. done needs evidence (test commands and their results, and the commit); MAO records what "
+     "you say as your claim and checks only that a given commit exists.",
+     "inputSchema": {"type": "object", "properties": {
+         "discussion_id": {"type": "string"}, "text": {"type": "string"},
+         "kind": {"type": "string", "enum": ["progress", "blocker", "question", "done"]},
+         "evidence": {"type": "string"}, "commit": {"type": "string"}},
+         "required": ["discussion_id", "text"]}},
 ]
 
 
 class Server:
-    def __init__(self, tools: OrchTools):
+    def __init__(self, tools: OrchTools, dispatch: Callable[[], bool] | None = None):
         self.tools = tools
+        self.dispatch = dispatch or (lambda: legacy.enabled(tools.data))   # the legacy switch, read per request
         self.calls: dict[str, Callable[..., dict]] = {
             "orch_list_projects": lambda a: tools.list_projects(),
             "orch_list_tasks": lambda a: tools.list_tasks(a["project"], a.get("status", "")),
@@ -419,6 +574,13 @@ class Server:
             "office_doc": lambda a: tools.doc(a["action"], a.get("request", ""), a.get("file", ""), a.get("materials"),
                                               a.get("style", "plain"), a.get("sensitive", False), a.get("mask", ""),
                                               a.get("out", "")),
+            "gpt_desktop_prepare": lambda a: tools.gpt_desktop_prepare(a["task"]),
+            "gpt_desktop_result": lambda a: tools.gpt_desktop_result(a["task_id"], a.get("wait", 30)),
+            "mao_list_briefs": lambda a: tools.list_briefs(a.get("project", ""), a.get("state") or None),
+            "mao_get_brief": lambda a: tools.get_brief(a.get("discussion_id", ""), a.get("taker", "cowork")),
+            "mao_report_progress": lambda a: tools.report_progress(a.get("discussion_id", ""), a.get("text", ""),
+                                                                   a.get("kind", "progress"), a.get("evidence", ""),
+                                                                   a.get("commit", "")),
         }
 
     def handle(self, msg: dict) -> dict | None:
@@ -429,16 +591,24 @@ class Server:
             if method == "initialize":
                 asked = (msg.get("params") or {}).get("protocolVersion")
                 result = {"protocolVersion": asked if asked in SUPPORTED else PROTOCOL, "capabilities": {"tools": {}},
-                          "serverInfo": {"name": "orch", "version": "0.4"}}
+                          "serverInfo": {"name": "orch", "version": __version__}}
             elif method == "ping":
                 result = {}
             elif method == "tools/list":
-                result = {"tools": TOOLS}
+                on = self.dispatch()
+                result = {"tools": [t for t in TOOLS if (on or t["name"] not in legacy.MCP_TOOLS)
+                                    and (HAVE_GPTBRIDGE or t["name"] not in GPT_TOOLS)]}
             elif method == "tools/call":
                 params = msg.get("params") or {}
-                fn = self.calls.get(params.get("name", ""))
+                name = params.get("name", "")
+                fn = self.calls.get(name)
                 if fn is None:
                     return _error(mid, -32602, f"unknown tool {params.get('name')!r}")
+                refused = (legacy.MCP_OFF.format(name=name) if name in legacy.MCP_TOOLS and not self.dispatch()
+                           else NO_GPTBRIDGE if name in GPT_TOOLS and not HAVE_GPTBRIDGE else "")
+                if refused:
+                    return {"jsonrpc": "2.0", "id": mid,
+                            "result": {"content": [{"type": "text", "text": "error: " + refused}], "isError": True}}
                 try:
                     data = fn(params.get("arguments") or {})
                     result = {"content": [{"type": "text", "text": json.dumps(data, ensure_ascii=False, indent=1)}]}
@@ -472,9 +642,13 @@ def _error(mid, code: int, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": mid, "error": {"code": code, "message": message}}
 
 
-def main(projects: list[str]) -> int:
+def main(projects: list[str], discussions: str | None = None, data: str | None = None) -> int:
     # stdout carries the protocol; keep it UTF-8 and line-buffered
     sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)  # type: ignore[attr-defined]
     sys.stdin.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-    Server(OrchTools(projects)).serve()
+    tools = OrchTools(projects, discussions=discussions or None, data=data or None)
+    try:
+        Server(tools).serve()
+    finally:   # stdin closed: let a phone alert that is on its way finish first
+        tools.close()
     return 0

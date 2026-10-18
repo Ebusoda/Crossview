@@ -1,13 +1,14 @@
 [project]
 name = "mao-orch"
-version = "0.5.0"
-description = "MAO: deterministic orchestrator for multiple coding-agent CLIs (Claude Code, Codex, opencode)"
+version = "0.6.0"
+description = "MAO: GPT and Claude discuss, you decide, Claude Cowork builds; MCP tools, phone alerts and a family web app on your own PC"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }   # PolyForm Noncommercial 1.0.0
 dependencies = []          # stdlib only on purpose
 
 [project.scripts]
 orch = "orch.cli:main"
+maoweb = "maoweb.server:main"
 
 [build-system]
 requires = ["setuptools>=68"]

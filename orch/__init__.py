@@ -1,3 +1,3 @@
-"""MAO: a deterministic orchestrator for multiple coding-agent CLIs (v0.1-pre)."""
+"""MAO: discussion, owner decisions and Claude Cowork tools (orch CLI and MCP server)."""
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.6.0"
