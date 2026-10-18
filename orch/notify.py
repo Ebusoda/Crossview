@@ -1,12 +1,12 @@
 """Phone alerts through ntfy (https://ntfy.sh, or the owner's own ntfy server): read-only, minimal text.
 
-MAO pushes a short line to the owner's phone when something waits for them: a discussion wants a decision (or
+Crossview pushes a short line to the owner's phone when something waits for them: a discussion wants a decision (or
 stopped, or looks stuck), Cowork reports a blocker / a question / done, a ChatGPT task waits for Send, or Claude Code
-waits for a permission. MAO never clicks or approves anything. A push carries only what happened and a short id
+waits for a permission. Crossview never clicks or approves anything. A push carries only what happened and a short id
 (DS-0003, the end of a job id, the start of a session id): never requirement text, model answers, report text,
 file contents, folder or project names, keys or personal data, because ntfy.sh is someone else's server.
 
-Everything lives in MAO's data folder (orch/datadir.py; the web app's .maoweb):
+Everything lives in Crossview's data folder (orch/datadir.py; the web app's .maoweb):
 - notify.json        the config (off until the owner sets it up; a random topic that is hard to guess)
 - notify_sent.json   dedup and retry state, the rate window and the recent list (under notify.lock)
 - notify_drops.jsonl pushes recorded while another process held the lock (folded in by the next locked write)
@@ -75,12 +75,12 @@ TAGS = {"discuss_waiting": "speech_balloon", "discuss_failed": "warning", "discu
         "test": "tada"}
 # (title, message) per kind and language; {ref} is a short id, never a name or a text
 MESSAGES: dict[str, dict[str, tuple[str, str]]] = {
-    "discuss_waiting": {"zh": ("MAO 讨论", "{ref} 第 {n} 阶段小结好了，等你决定"),
-                        "en": ("MAO discussion", "{ref}: stage {n} summary is ready for your decision")},
-    "discuss_failed": {"zh": ("MAO 讨论", "{ref} 停下了（出错或中断），打开 MAO 看看"),
-                       "en": ("MAO discussion", "{ref} stopped (error or interruption); open MAO to look")},
-    "discuss_stuck": {"zh": ("MAO 讨论", "{ref} 已经 {minutes} 分钟没有动静，可能卡住了"),
-                      "en": ("MAO discussion", "{ref}: no progress for {minutes} minutes; it may be stuck")},
+    "discuss_waiting": {"zh": ("Crossview 讨论", "{ref} 第 {n} 阶段小结好了，等你决定"),
+                        "en": ("Crossview discussion", "{ref}: stage {n} summary is ready for your decision")},
+    "discuss_failed": {"zh": ("Crossview 讨论", "{ref} 停下了（出错或中断），打开 Crossview 看看"),
+                       "en": ("Crossview discussion", "{ref} stopped (error or interruption); open Crossview to look")},
+    "discuss_stuck": {"zh": ("Crossview 讨论", "{ref} 已经 {minutes} 分钟没有动静，可能卡住了"),
+                      "en": ("Crossview discussion", "{ref}: no progress for {minutes} minutes; it may be stuck")},
     "cowork_blocker": {"zh": ("Cowork", "{ref}：Cowork 遇到阻碍，需要你看一下"),
                        "en": ("Cowork", "{ref}: Cowork is blocked and needs you")},
     "cowork_question": {"zh": ("Cowork", "{ref}：Cowork 有个问题要问你"),
@@ -96,8 +96,8 @@ MESSAGES: dict[str, dict[str, tuple[str, str]]] = {
                       "en": ("Claude Code", "is waiting for your approval or answer (session {ref})")},
     "cc_input": {"zh": ("Claude Code", "停下来在等你继续（会话 {ref}）"),
                  "en": ("Claude Code", "has stopped and is waiting for you to continue (session {ref})")},
-    "test": {"zh": ("MAO", "测试提醒：手机能收到 MAO 的提醒了"),
-             "en": ("MAO", "Test: MAO notifications reach this phone")},
+    "test": {"zh": ("Crossview", "测试提醒：手机能收到 Crossview 的提醒了"),
+             "en": ("Crossview", "Test: Crossview notifications reach this phone")},
 }
 FIELDS = ("ref", "n", "minutes", "hours")      # the only values a push text is filled with
 
@@ -250,7 +250,7 @@ def save(changes: dict, data: Path | str | None = None, now: float | None = None
 
 
 def new_topic() -> str:
-    return "mao-" + secrets.token_urlsafe(18)
+    return "crossview-" + secrets.token_urlsafe(18)
 
 
 def ensure_topic(data: Path | str | None = None) -> dict:
@@ -538,7 +538,7 @@ def notify(kind: str, key: str, *, ref: str = "", at: float | None = None, extra
         return _notify(kind, key, ref=ref, at=at, extra=extra, data=_data(data), sender=sender, via=via,
                        now=now, timeout=timeout, idle=idle)
     except Exception as e:  # noqa: BLE001  (a push never breaks its caller)
-        _say(f"MAO phone alerts: {type(e).__name__}: {e}")
+        _say(f"Crossview phone alerts: {type(e).__name__}: {e}")
         return {"sent": False, "reason": "error"}
 
 
@@ -620,7 +620,7 @@ def send_test(data: Path | str | None = None, sender: Sender | None = None, via:
         err = _send_and_record(cfg, data, "test", None, "", None, sender, via, now, SEND_TIMEOUT)
         return {"ok": not err, "error": err}
     except Exception as e:  # noqa: BLE001
-        _say(f"MAO phone alerts: {type(e).__name__}: {e}")
+        _say(f"Crossview phone alerts: {type(e).__name__}: {e}")
         return {"ok": False, "error": f"{type(e).__name__}"}
 
 

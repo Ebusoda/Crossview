@@ -180,7 +180,7 @@ class Jobs:
         x("UPDATE dispatch_jobs SET status='plan_ready' WHERE status='draft'")
         for r in q(f"SELECT id, path, worker_pid, server_pid, updated_at FROM dispatch_jobs WHERE status IN {ACTIVE}"):
             if _ours(r["server_pid"]) and started_within(r["server_pid"], 0, (r["updated_at"] or 0) + SLACK):
-                continue   # the MAO that started it still runs (a second one on the same data folder): its job
+                continue   # the Crossview that started it still runs (a second one on the same data folder): its job
             if _is_worker(r["worker_pid"], r["updated_at"]):
                 kill_tree(r["worker_pid"])
             self._release(r["path"], r["worker_pid"])

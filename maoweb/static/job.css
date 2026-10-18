@@ -210,7 +210,7 @@ details[open] > summary .jv-more .c { display: inline; }
 .jv-mk { font-weight: 600; }
 .jv-mf { font-size: 11px; color: var(--text-2); }
 
-/* MAO's own rows: acceptance check, merge */
+/* Crossview's own rows: acceptance check, merge */
 .jv-verify { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 12px; padding: 9px 12px; min-width: 0; }
 .jv-verify > .mark { width: 20px; height: 20px; }
 .jv-verify.bad > .mark { background: var(--text-3); }

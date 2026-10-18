@@ -1,4 +1,4 @@
-"""HTTP server for MAO web. Standard library only (http.server), one thread per request.
+"""HTTP server for Crossview web. Standard library only (http.server), one thread per request.
 
 Security model (it runs on the owner's PC and may be reached from outside through a private
 tunnel such as Tailscale):
@@ -97,7 +97,7 @@ class App:
 
 class Handler(BaseHTTPRequestHandler):
     app: App
-    server_version = "MAO-web"
+    server_version = "Crossview-web"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt: str, *args) -> None:  # keep request lines out of the console (no paths with data)
@@ -328,7 +328,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.close_connection = True
                 return
             try:
-                self._json(500, {"error": f"MAO 内部出错了，请稍后再试（{type(e).__name__}）"})
+                self._json(500, {"error": f"Crossview 内部出错了，请稍后再试（{type(e).__name__}）"})
             except OSError:
                 self.close_connection = True
 
@@ -858,9 +858,9 @@ def make_server(host: str = "127.0.0.1", port: int = 8848, app: App | None = Non
 
 
 def hold_instance_lock(data: Path):
-    """One MAO per data folder: a second one would take over the jobs the first is running. Returns the open lock
+    """One Crossview per data folder: a second one would take over the jobs the first is running. Returns the open lock
     file (kept for the life of the process; the system lets go of it however the process ends), or None when
-    another MAO holds it."""
+    another Crossview holds it."""
     data.mkdir(parents=True, exist_ok=True)
     f = open(data / "server.lock", "a+b")
     try:
@@ -897,7 +897,7 @@ def main(argv: list[str] | None = None) -> int:
     import threading
     import webbrowser
 
-    p = argparse.ArgumentParser(prog="maoweb", description="MAO 网页版")
+    p = argparse.ArgumentParser(prog="maoweb", description="Crossview 网页版")
     p.add_argument("--remote", action="store_true",
                    help="同时在这台电脑的 Tailscale 地址上监听，让你自己的手机、平板在外面也能打开")
     p.add_argument("--lan", action="store_true", help="也允许同一个家庭网络（局域网）里的设备打开")
@@ -918,9 +918,9 @@ def main(argv: list[str] | None = None) -> int:
     for h in args.host or []:
         if h not in hosts:
             hosts.append(h)
-    instance = hold_instance_lock(data_dir())   # before anything touches the jobs of a MAO that may be running
+    instance = hold_instance_lock(data_dir())   # before anything touches the jobs of a Crossview that may be running
     if instance is None:
-        print(f"已经有一个 MAO 在运行（数据在 {data_dir()}）。不用再打开一次：直接在浏览器里打开 "
+        print(f"已经有一个 Crossview 在运行（数据在 {data_dir()}）。不用再打开一次：直接在浏览器里打开 "
               f"http://127.0.0.1:{args.port}/ ；要重新启动，先关掉原来那个窗口。")
         return 1
     handler = type("BoundHandler", (Handler,), {})
@@ -940,7 +940,7 @@ def main(argv: list[str] | None = None) -> int:
     for srv in servers[1:]:
         threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.5}, daemon=True).start()
     local = f"http://127.0.0.1:{args.port}/"
-    print(f"MAO 网页版已启动：{local}")
+    print(f"Crossview 网页版已启动：{local}")
     for h in app.addresses:
         if h not in ("127.0.0.1", "0.0.0.0"):
             print(f"外出时在你自己的手机 / 平板上打开（需要登录同一个 Tailscale 账号）：http://{h}:{args.port}/")

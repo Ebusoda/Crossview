@@ -4,9 +4,11 @@ earlier discussions of the same project, and the brief Cowork pulls over MCP.
 Trust rule:
 - `owner_decision` is written only by owner actions (the admin, on the web) and by approve_state, also when the
   engine auto-approves because of the owner's own control setting (then `by: "auto"`).
-- `fact` is written only by MAO about what MAO itself did or checked (`by: "MAO"`).
+- `fact` is written only by Crossview about what Crossview itself did or checked (`by: "Crossview"`; records from
+  before 0.6.1 say `by: "MAO"`, the product's old name, and are shown as Crossview).
 - A model's text and Cowork's text are never a fact or an owner decision: they are `model_suggestion` (a claim) or
-  `assumption`. A claim that calls itself a fact carries `claim: "fact"` and, where MAO checked it, `source_exists`.
+  `assumption`. A claim that calls itself a fact carries `claim: "fact"` and, where Crossview checked it,
+  `source_exists`.
 
 Nothing here writes into a project folder: RECORD.md and BRIEF.md live in the discussion folder (Store.update
 renders them). The MCP-facing functions at the end raise English ValueErrors only.
@@ -30,7 +32,7 @@ MAX_TAKER = 64
 COMMIT_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
 CARRIED_STEP = 150
 
-KIND_LABELS = {"fact": "事实（MAO 记录）", "assumption": "假设", "model_suggestion": "模型建议",
+KIND_LABELS = {"fact": "事实（Crossview 记录）", "assumption": "假设", "model_suggestion": "模型建议",
                "owner_decision": "你的决定"}
 SECTION_TITLES = {"requirement_changes": "需求变更与约束", "approved_decisions": "已批准决策",
                   "rejected_plans": "被否方案（及原因）", "open_questions": "待解决问题", "notes": "事实与假设",
@@ -41,9 +43,11 @@ STEP_LABELS = {"analysis": "独立分析", "review": "评审", "exchange": "交�
 REPORT_LABELS = {"progress": "进展", "blocker": "受阻", "question": "问题", "done": "完成"}
 CHANGE_LABELS = {"change": "需求变更", "constraint": "新约束", "answer": "回答"}
 COMMIT_CHECK = {True: "在项目仓库里存在", False: "项目仓库里没有，来源找不到", None: "没法核对"}
-REPORT_WITH = "mao_report_progress(discussion_id, kind, text, evidence, commit)"
-NO_QUEUE = ("Develop it yourself in Cowork. Do not queue it with orch_add_task or orch_run: MAO would then run the "
-            "same work a second time.")
+REPORT_WITH = "crossview_report_progress(discussion_id, kind, text, evidence, commit)"
+NO_QUEUE = ("Develop it yourself in Cowork. Do not queue it with orch_add_task or orch_run: Crossview would then run "
+            "the same work a second time.")
+SELF = "Crossview"          # `by` of the facts Crossview records itself
+OLD_SELF = "MAO"            # the same, in records written before 0.6.1 (the product's old name)
 
 
 def _when(t: float | None, day_only: bool = False) -> str:
@@ -328,11 +332,21 @@ def _carried_entries(state: dict) -> list[dict]:
     return out
 
 
+def _renamed(e: dict) -> dict:
+    """An entry Crossview wrote itself before 0.6.1 (`by: "MAO"`, its old name) as it reads now: by Crossview, and
+    the commit fact's text names Crossview too. A copy; the stored entry is never changed."""
+    if e.get("by") != OLD_SELF:
+        return e
+    text = str(e.get("text") or "").replace(f"（{OLD_SELF} 只核对了这一点）", f"（{SELF} 只核对了这一点）")  # report_progress
+    return {**e, "by": SELF, "text": text}
+
+
 def record_sections(state: dict) -> dict[str, list[dict]]:
-    """Entries per section in RECORD.md order (the web's 决策记录 tab); `earlier` comes from the carried snapshot."""
+    """Entries per section in RECORD.md order (the web's 决策记录 tab); `earlier` comes from the carried snapshot.
+    Entries written before 0.6.1 under the old name come out as Crossview's (see _renamed)."""
     out: dict[str, list[dict]] = {s: [] for s in SECTIONS}
     for e in state.get("entries") or []:
-        out.setdefault(e["section"], []).append(e)
+        out.setdefault(e["section"], []).append(_renamed(e))
     out["earlier"] = _carried_entries(state) + out.get("earlier", [])
     return out
 
@@ -354,7 +368,7 @@ def _entry_line(e: dict) -> str:
         text += f"（提交 {str(e['source'])[:12]}：{COMMIT_CHECK.get(e.get('source_exists'), COMMIT_CHECK[None])}）"
     elif e.get("claim") == "fact":
         if e.get("source_exists") is True:
-            text += "（模型说是事实；来源文件存在，MAO 没有核对内容）"
+            text += "（模型说是事实；来源文件存在，Crossview 没有核对内容）"
         elif e.get("source_exists") is False:
             text += "（来源找不到）"
     if cowork_claim and e.get("evidence"):
@@ -529,8 +543,8 @@ def render_brief(state: dict) -> str:
     out += ["", "## 未核实的假设（Unverified assumptions）", ""]
     out += [f"- {a}" for a in x["assumptions"]] or ["（无 / none）"]
     out += ["", "## 如何回报（How to report back）", "", NO_QUEUE, "",
-            f'Report with mao_report_progress(discussion_id="{x["discussion_id"]}", kind="progress|blocker|question|done", '
-            'text="...", evidence="...", commit="...").',
+            f'Report with crossview_report_progress(discussion_id="{x["discussion_id"]}", '
+            'kind="progress|blocker|question|done", text="...", evidence="...", commit="...").',
             "done needs evidence: test commands with their results, and the commit."]
     return "\n".join(out).rstrip("\n") + "\n"
 
@@ -614,7 +628,7 @@ def _english(e: Exception, did: str = "") -> ValueError:
         return ValueError(f"no such discussion: {did}")
     if msg == d.BUSY:
         return ValueError("the discussion record is busy; try again in a moment")
-    return ValueError("MAO refused this request")
+    return ValueError("Crossview refused this request")
 
 
 def _light(st: dict) -> dict:
@@ -666,7 +680,7 @@ def get_brief(store: "d.Store", did: str, taker: str = "cowork", take: bool = Tr
                     now = time.time()
                     b.update(state="taken", taken_by=taker, taken_at=now)
                     b.setdefault("takes", []).append({"by": taker, "at": now})
-                    add_entry(s, "cowork_feedback", "fact", f"已被 {taker} 领取", by="MAO", ref=f"P{b.get('plan_v')}")
+                    add_entry(s, "cowork_feedback", "fact", f"已被 {taker} 领取", by=SELF, ref=f"P{b.get('plan_v')}")
                     return {"took": True}
                 return {"took": False}
 
@@ -708,7 +722,8 @@ def commit_exists(project_path: str | None, sha: str) -> bool | None:
 
 def report_progress(store: "d.Store", did: str, text: str, kind: str = "progress", evidence: str = "",
                     commit: str = "", by: str = "cowork") -> dict:
-    """Cowork reports back on a brief it took. Recorded as Cowork's claim; MAO checks only that a commit exists."""
+    """Cowork reports back on a brief it took. Recorded as Cowork's claim; Crossview checks only that a commit
+    exists."""
     did = str(did or "").strip()
     if not did:
         raise ValueError("give discussion_id")
@@ -745,8 +760,8 @@ def report_progress(store: "d.Store", did: str, text: str, kind: str = "progress
                 extra["source_exists"] = exists
             e = add_entry(s, "cowork_feedback", "model_suggestion", text, by=who, source=commit, **extra)
             if exists:
-                add_entry(s, "cowork_feedback", "fact", f"提交 {commit[:12]} 在项目仓库里存在（MAO 只核对了这一点）",
-                          by="MAO", ref=e["id"], source=commit, source_exists=True)
+                add_entry(s, "cowork_feedback", "fact", f"提交 {commit[:12]} 在项目仓库里存在（Crossview 只核对了这一点）",
+                          by=SELF, ref=e["id"], source=commit, source_exists=True)
             now = time.time()
             b.setdefault("reports", []).append({"id": e["id"], "kind": kind, "text": text, "evidence": evidence,
                                                 "commit": commit, "commit_exists": exists, "at": now, "by": who})
@@ -767,4 +782,4 @@ def _check_reportable(st: dict) -> None:
     if b["state"] == "done":
         raise ValueError("this brief is done")
     if b["state"] != "taken":
-        raise ValueError("take the brief with mao_get_brief first")
+        raise ValueError("take the brief with crossview_get_brief first")

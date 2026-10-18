@@ -1,7 +1,7 @@
 """「放进我的项目文件夹」: bringing what orch merged on its integration branch into the user's own checkout.
 
 orch never touches the user's folder (orch/workspace.py): finished items are merged on its integration branch, in a
-worktree of its own. This is the one place MAO changes the user's folder, and only when the user clicks.
+worktree of its own. This is the one place Crossview changes the user's folder, and only when the user clicks.
 
 state() says what would change and whether it can be done now. It is cached by the repository's own files (HEAD, the
 index, the refs, the markers of an operation in progress), so a page poll stats a few files instead of running git;
@@ -58,18 +58,18 @@ TEXT = {
     "folder_gone": "找不到你的项目文件夹，可能被移走或删掉了。",
     "no_repo": "你的项目文件夹还没有保存过版本，没法放进去。",
     "detached": "你的项目文件夹现在不在平常用的版本上（比如正在看以前的版本）。为了不弄乱你的文件，这次先不放。",
-    "orch_branch": "你的项目文件夹现在切到了 MAO 自己用的版本上。为了不弄乱你的文件，这次先不放。",
+    "orch_branch": "你的项目文件夹现在切到了 Crossview 自己用的版本上。为了不弄乱你的文件，这次先不放。",
     "in_progress": "你的项目文件夹里有一个操作还没做完（比如合并到一半）。为了不弄乱你的文件，这次先不放。",
     "dirty": "你的项目文件夹里有还没保存的改动：{names}。为了不弄乱你的文件，这次先不放。",
     "untracked": "你的项目文件夹里已经有同名的文件：{names}。放进去会把它们盖掉，所以这次先不放。",
     "conflict": "这些文件在你的项目文件夹里也改过，和这次的改动合不到一起：{names}。为了不弄乱你的文件，这次先不放。",
     "in_use": "这些文件正被别的程序打开着（比如 Excel）：{names}。先关掉它们，再放一次。",
-    "running": "MAO 正在做这个项目的任务，做完才能放。",
-    "unchecked": "MAO 上次停下来的时候，有改动还没检查完，所以先不放。接着做完这件事（或者选「不做了」）以后就能放了。",
+    "running": "Crossview 正在做这个项目的任务，做完才能放。",
+    "unchecked": "Crossview 上次停下来的时候，有改动还没检查完，所以先不放。接着做完这件事（或者选「不做了」）以后就能放了。",
 }
 NOTHING = "没有新的改动要放进去。"
 CHANGED = "刚才又有改动做好了，要放进去的文件变了。请再看一下，没问题就再点「确定」。"
-STILL_THERE = "MAO 想删掉的这些文件还在：{names}。可能有别的程序正在用它们，可以关掉后自己删掉。"
+STILL_THERE = "Crossview 想删掉的这些文件还在：{names}。可能有别的程序正在用它们，可以关掉后自己删掉。"
 FAILED = "没有放成，你的项目文件夹没有变。"
 FAILED_IN_USE = "没有放成：有文件正被别的程序打开着（比如 Excel）。你的项目文件夹没有变，关掉它们再放一次。"
 FAILED_SLOW = "没有放成：等了太久还没有做完。你的项目文件夹没有变，请稍后再试。"
@@ -149,7 +149,7 @@ def _raw_diff(out: bytes) -> list[dict]:
 
 
 def _dirty(p: Path, timeout: float | None = None) -> list[str]:
-    """Tracked files with changes, staged or not (MAO's own folders left out)."""
+    """Tracked files with changes, staged or not (Crossview's own folders left out)."""
     r = _ok(_git(["status", "--porcelain", "-z", "--untracked-files=no"], p, timeout=timeout), "status")
     items, out, i = r.stdout.split(b"\0"), [], 0
     while i < len(items):
@@ -583,7 +583,7 @@ class Landing:
             except subprocess.TimeoutExpired:
                 raise ValueError(FAILED_SLOW) from None
             except (ws.GitError, OSError) as e:
-                print(f"MAO: landing in {p} failed: {e}", flush=True)
+                print(f"Crossview: landing in {p} failed: {e}", flush=True)
                 raise ValueError(FAILED) from None
             finally:
                 lock.release()
@@ -611,7 +611,8 @@ class Landing:
         if ins["ff"]:
             args = ["merge", "--ff-only", sha]
         else:
-            args = ["merge", "--no-ff", "--no-edit", "--no-verify", "-m", f"Merge {integ} (MAO's finished work)", sha]
+            args = ["merge", "--no-ff", "--no-edit", "--no-verify", "-m", f"Merge {integ} (Crossview's finished work)",
+                    sha]
         try:
             r = self._merge(p, who, args)
         except (subprocess.TimeoutExpired, OSError):
@@ -634,7 +635,7 @@ class Landing:
         if landed:
             return self._landed(user, project, p, ins, new)
         said = "" if r is None else (r.stdout + b"\n" + r.stderr).decode("utf-8", "replace")
-        print(f"MAO: landing in {p} did not go through: {said.strip()[-600:] or 'timeout'}", flush=True)
+        print(f"Crossview: landing in {p} did not go through: {said.strip()[-600:] or 'timeout'}", flush=True)
         left = self.put_back(p, ref, before, sha, plan, sorted(fresh), ins["ff"])
         if left:
             raise _Fail(LEFT.format(names=_names(left)))
@@ -725,7 +726,7 @@ class Landing:
             if cur != before:
                 if not self._ours(p, cur, before, sha, ff):
                     return paths
-                _ok(git(["update-ref", "-m", "MAO: undo an unfinished landing", ref, before, cur], write=True),
+                _ok(git(["update-ref", "-m", "Crossview: undo an unfinished landing", ref, before, cur], write=True),
                     "update-ref")
         except Exception:   # noqa: BLE001  (could not even look: never claim it is as it was)
             traceback.print_exc()

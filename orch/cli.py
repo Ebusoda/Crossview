@@ -593,7 +593,7 @@ def cmd_legacy(args: argparse.Namespace) -> int:
 
 def _hook_label(state: str) -> str:
     return {"installed": tr("已安装"),
-            "outdated": tr("需要重新安装（MAO 换了位置或 Python 变了）：python -m orch notify hook install"),
+            "outdated": tr("需要重新安装（Crossview 换了位置或 Python 变了）：python -m orch notify hook install"),
             "missing": tr("没有安装（python -m orch notify hook install）"),
             "no_claude": tr("没有找到 Claude Code 的设置文件夹"),
             "broken": tr("settings.json 读不了，没有改动它")}.get(state, state)
@@ -625,7 +625,7 @@ def cmd_notify(args: argparse.Namespace) -> int:
             elif what == "uninstall":
                 r = notify_hook.uninstall()
                 print(tr("已移除 Claude Code 钩子（原文件备份在 {0}）", r["backup"]) if r["changed"]
-                      else tr("没有找到 MAO 的 Claude Code 钩子，没有改动。"))
+                      else tr("没有找到 Crossview 的 Claude Code 钩子，没有改动。"))
             else:
                 print(tr("Claude Code 钩子：{0}", _hook_label(notify_hook.status(data=data, python=args.python or None))))
             return 0
@@ -1147,7 +1147,7 @@ def _office_flags(p: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="orch", description="MAO: GPT-Claude discussions, owner decisions and tools "
+    p = argparse.ArgumentParser(prog="orch", description="Crossview: GPT-Claude discussions, owner decisions and tools "
                                 "for Claude Cowork (the old task dispatch is off by default)")
     p.add_argument("-p", "--project", default=".", help=tr("项目目录（默认当前目录）"))
     p.add_argument("--lang", choices=list(i18n.LANGS), help=tr("language of the messages: zh, en or ja (this run only)"))
@@ -1328,9 +1328,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     mc = sub.add_parser("mcp", help=tr("MCP 服务（stdio）：给 Claude Cowork / Claude Desktop 用的工具（讨论方案、办公、ChatGPT 桥接）"))
     mc.add_argument("--project", dest="projects", action="append", help=tr("要管理的项目目录，可多次指定（默认 -p 的项目）"))
-    mc.add_argument("--data", default="", help="MAO's data folder: legacy switch, phone alerts, keys (default: "
-                    "MAO_WEB_DATA, else <MAO folder>/.maoweb); discussions default to DIR/discussions")
-    mc.add_argument("--discussions", default="", help="folder of MAO discussions (default: MAO_DISCUSS_DIR, else "
+    mc.add_argument("--data", default="", help="Crossview's data folder: legacy switch, phone alerts, keys (default: "
+                    "MAO_WEB_DATA, else <Crossview folder>/.maoweb); discussions default to DIR/discussions")
+    mc.add_argument("--discussions", default="", help="folder of Crossview discussions (default: MAO_DISCUSS_DIR, else "
                     "<MAO_WEB_DATA or .maoweb>/discussions)")
     mc.set_defaults(fn=cmd_mcp)
 

@@ -3,11 +3,11 @@ for input). Read-only: the hook only pushes; it never answers or approves anythi
 
 `install()` adds one hook group to Claude Code's settings.json (<CLAUDE_CONFIG_DIR or ~/.claude>/settings.json),
 after a backup, keeping the file's other hooks, indent, line endings and BOM; it is idempotent, and `uninstall()`
-removes only MAO's entry. The entry is exec form (a command plus args, no shell), so neither the shell nor the
+removes only Crossview's entry. The entry is exec form (a command plus args, no shell), so neither the shell nor the
 hook's working folder matters:
 
-    python -X utf8 -P -c "import sys; sys.path.insert(0, '<MAO folder>'); from orch.notify_hook import main;
-                          main('<MAO data folder>')" --mao-notify-hook
+    python -X utf8 -P -c "import sys; sys.path.insert(0, '<Crossview folder>'); from orch.notify_hook import main;
+                          main('<Crossview data folder>')" --mao-notify-hook
 
 -P keeps the working folder off sys.path: Claude Code starts hooks in the project folder, and a `secrets.py`,
 `json.py` or `email/` there must neither break the hook nor run on every permission prompt.
@@ -61,7 +61,7 @@ def settings_path(claude: Path | str | None = None) -> Path:
 
 
 def entry(data: Path | str, python: str | None = None) -> dict:
-    """MAO's hook group for settings.json. ValueError(NO_PYTHON) when the interpreter is not an existing file."""
+    """Crossview's hook group for settings.json. ValueError(NO_PYTHON) when the interpreter is not an existing file."""
     py = sys.executable if python is None else str(python)
     if not py or not Path(py).is_file():
         raise ValueError(NO_PYTHON)
@@ -82,7 +82,7 @@ def _usable(cmd) -> bool:
 
 
 def _ours_in(cfg: dict) -> list[tuple[dict, dict]]:
-    """(group, hook) for each of MAO's hook entries."""
+    """(group, hook) for each of Crossview's hook entries."""
     groups = (cfg.get("hooks") or {}).get("Notification") or []
     return [(g, h) for g in groups for h in (g.get("hooks") or []) if _ours(h)]
 
@@ -139,7 +139,7 @@ def _read(path: Path) -> tuple[dict, dict]:
 
 
 def _without_ours(cfg: dict) -> tuple[dict, bool]:
-    """A copy without MAO's hook entries (groups emptied that way are dropped), and whether any were found."""
+    """A copy without Crossview's hook entries (groups emptied that way are dropped), and whether any were found."""
     new = copy.deepcopy(cfg)
     groups = (new.get("hooks") or {}).get("Notification")
     if not groups:
@@ -202,7 +202,7 @@ def _write(path: Path, cfg: dict, fmt: dict, now: float | None) -> str:
 
 
 def status(claude: Path | str | None = None, data: Path | str | None = None, python: str | None = None) -> str:
-    """installed | outdated (ours, but not what install() would write now: MAO or its data folder moved, the
+    """installed | outdated (ours, but not what install() would write now: Crossview or its data folder moved, the
     interpreter is gone, or an older hook) | missing | no_claude (Claude Code's folder is absent) | broken
     (settings.json cannot be read as expected). Without python=, any interpreter that still exists counts (the owner
     may have installed it with pythonw.exe); with python=, it must be that one."""
@@ -236,9 +236,9 @@ def status(claude: Path | str | None = None, data: Path | str | None = None, pyt
 
 def install(data: Path | str | None = None, claude: Path | str | None = None, python: str | None = None,
             now: float | None = None) -> dict:
-    """Add (or update) MAO's hook. {"changed": bool, "path": str, "backup": str}. Writes nothing when it is already
-    there as it should be. Without python=, the interpreter already in MAO's hook is kept while it still exists
-    (else sys.executable). ValueError(NO_CLAUDE / BAD_JSON / BAD_SHAPE / NO_PYTHON)."""
+    """Add (or update) Crossview's hook. {"changed": bool, "path": str, "backup": str}. Writes nothing when it is
+    already there as it should be. Without python=, the interpreter already in Crossview's hook is kept while it still
+    exists (else sys.executable). ValueError(NO_CLAUDE / BAD_JSON / BAD_SHAPE / NO_PYTHON)."""
     if data is None:
         from .datadir import data_dir
 
@@ -260,7 +260,7 @@ def install(data: Path | str | None = None, claude: Path | str | None = None, py
 
 
 def uninstall(claude: Path | str | None = None, now: float | None = None) -> dict:
-    """Remove MAO's hook (and an emptied Notification list and hooks object). Writes nothing when it was not
+    """Remove Crossview's hook (and an emptied Notification list and hooks object). Writes nothing when it was not
     there."""
     path = settings_path(claude)
     cfg, fmt = _read(path)
@@ -303,7 +303,7 @@ def main(data: str | None = None, stdin: BinaryIO | None = None, sender=None, no
     except Exception as e:  # noqa: BLE001  (the hook never breaks Claude Code)
         if sys.stderr is not None:
             try:
-                print(f"MAO notify hook: {type(e).__name__}", file=sys.stderr)
+                print(f"Crossview notify hook: {type(e).__name__}", file=sys.stderr)
             except Exception:  # noqa: BLE001
                 pass
     return 0

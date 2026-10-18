@@ -2,7 +2,7 @@
 
 Projects are kept in the setting `code.projects` as [{"id", "name", "path", "added_at"}] with resolved paths.
 Adding a folder follows orch's own rules (setup notes §2): refuse places that are not one project (a whole disk,
-the home folder, personal folders, MAO itself, orch's worktrees, a subfolder of another repository), then
+the home folder, personal folders, Crossview itself, orch's worktrees, a subfolder of another repository), then
 create / git init / first commit / `orch init` as needed. Big folders (node_modules ...) and secret-looking
 files never reach the version the agents work on: they go into the repository's own info/exclude before the
 first `git add`. Every git call here runs without fsmonitor and with a timeout; commits skip the user's hooks.
@@ -27,7 +27,7 @@ from orch.scheduler import OrchError, init_project
 
 from .db import data_dir
 
-ROOT = Path(__file__).resolve().parents[1]          # MAO's own repository
+ROOT = Path(__file__).resolve().parents[1]          # Crossview's own repository
 SETTING = "code.projects"
 LAST_ID = "code.projects.last_id"                     # ids are never reused: old jobs keep pointing at theirs
 NAME_MAX = 40
@@ -49,12 +49,12 @@ ONEDRIVE_SUB = ("Desktop", "Documents", "Pictures", "Downloads", "Videos", "Musi
 KNOWN_FOLDERS = ("B4BFCC3A-DB2C-424C-B029-7FE99A87C641", "FDD39AD0-238F-46AF-ADB4-6C85480369C7",   # Desktop, Documents
                  "374DE290-123F-4565-9164-39C4925E467B", "33E28130-4E1E-4676-835A-98395C3BC3BB",   # Downloads, Pictures
                  "18989B1D-99B5-455B-841C-AB7C74E4DDFC", "4BD8D571-6D19-48D3-BE97-422220080E43")   # Videos, Music
-# secret-looking files kept out of every commit MAO makes here (the survey's exact names come on top of these)
+# secret-looking files kept out of every commit Crossview makes here (the survey's exact names come on top of these)
 SECRET_LINES = (".env", ".env.*", "!.env.example", "!.env.sample", "!.env.template", "!.env.dist", "*.key", "*.pem",
                 "*.pfx", "*.p12", "id_rsa*", "id_dsa*", "id_ecdsa*", "id_ed25519*", "!id_rsa*.pub", "!id_dsa*.pub",
                 "!id_ecdsa*.pub", "!id_ed25519*.pub")
-MAO_IGNORED = ("playground", "probe")                 # .gitignore'd in MAO's repo (used if git cannot tell)
-EXCLUDE_HEAD = "# added by MAO orchestrator"
+MAO_IGNORED = ("playground", "probe")                 # .gitignore'd in Crossview's repo (used if git cannot tell)
+EXCLUDE_HEAD = "# added by Crossview"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _prep = threading.RLock()                             # one preparation at a time: git identity is process-wide
 
@@ -63,8 +63,8 @@ PROBLEMS = {
     "drive_root": "不能把整个磁盘当成项目，请选里面的一个文件夹。",
     "home_folder": "这是你的个人文件夹（或者包含它），里面有很多私人文件，不能交给 AI。请选一个专门放项目的文件夹。",
     "personal_folder": "这是放私人文件的地方（桌面、文档、下载等），不能整个交给 AI。请在里面新建一个专门的项目文件夹。",
-    "mao_folder": "这是 MAO 自己的文件夹，不能当成项目。项目可以放在 MAO 的 playground 文件夹里。",
-    "worktree": "这是 MAO 给 AI 干活用的临时文件夹，不能当成项目。",
+    "mao_folder": "这是 Crossview 自己的文件夹，不能当成项目。项目可以放在 Crossview 的 playground 文件夹里。",
+    "worktree": "这是 Crossview 给 AI 干活用的临时文件夹，不能当成项目。",
     "inside_repo": "这个文件夹在另一个项目（git 仓库）里面：{root}。请直接添加那个文件夹。",
     "no_git": "这台电脑还没有安装 git。先安装 git，再来添加项目。",
     "git_error": "git 打不开这个文件夹：{detail}",
@@ -327,7 +327,7 @@ def _survey_dir(p: Path) -> dict:
 
 
 def _status(p: Path) -> list[tuple[str, str]]:
-    """Uncommitted changes as (XY, path), MAO's own folders left out."""
+    """Uncommitted changes as (XY, path), Crossview's own folders left out."""
     r = _ok(_git(["status", "--porcelain", "-z", "--untracked-files=normal"], p), "status")
     items, out = r.stdout.decode("utf-8", errors="replace").split("\0"), []
     i = 0
@@ -593,7 +593,7 @@ class Projects:
     def _git_place(self, p: Path, exists: bool, problem, g: dict) -> None:
         """Location rules that need git, run in p (or in its parent when p does not exist yet)."""
         anchor = p if exists else p.parent
-        if _under(p, ROOT):                      # inside MAO: only folders MAO's git ignores (playground/...)
+        if _under(p, ROOT):                      # inside Crossview: only folders its git ignores (playground/...)
             ign = _ignored(ROOT, p)
             if ign is None:
                 ign = Path(os.path.relpath(p, ROOT)).parts[0].lower() in MAO_IGNORED
@@ -689,7 +689,7 @@ class Projects:
         return proj
 
     def link(self, raw, name: str = "") -> dict:
-        """Register an existing folder for discussions only (关联项目, brief carry-over, the mao_list_briefs filter):
+        """Register an existing folder for discussions only (关联项目, brief carry-over, the crossview_list_briefs filter):
         no git, no .agents, no orch init; nothing is written into the folder. While the old dispatch is on, such a
         folder shows as not ready until it is removed and added again through 添加项目."""
         s = clean_input(raw)
@@ -709,7 +709,7 @@ class Projects:
         return self._register(self._free_name(str(name or "").strip() or self._suggest(p)), p)
 
     def _excludes(self, p: Path, lines: list[str]) -> None:
-        """MAO's lines in <git-common-dir>/info/exclude (.task/ and .agents/ always), each once."""
+        """Crossview's lines in <git-common-dir>/info/exclude (.task/ and .agents/ always), each once."""
         common = Path(_out(_ok(_git(["rev-parse", "--git-common-dir"], p), "rev-parse")))
         exclude = (common if common.is_absolute() else p / common) / "info" / "exclude"
         exclude.parent.mkdir(parents=True, exist_ok=True)
@@ -739,7 +739,7 @@ class Projects:
             self._excludes(p, [_pattern(x) for x in found])   # and they stay out of the agents' commits as well
         if not first and _git(["diff", "--cached", "--quiet"], p).returncode == 0:
             return
-        msg = ["--allow-empty", "-m", "Initial commit"] if first else ["-m", "Save work before MAO"]
+        msg = ["--allow-empty", "-m", "Initial commit"] if first else ["-m", "Save work before Crossview"]
         _ok(_git(["-c", "commit.gpgsign=false", *who, "commit", "--no-verify", "-q", *msg], p, timeout=ADD_TIMEOUT,
                  read_only=False), "commit")
 

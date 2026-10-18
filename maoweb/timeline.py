@@ -30,7 +30,7 @@ from orch.providers import describe_pool
 from orch.review import parse_verdict
 
 VERSION = 1   # part of every sig: a server with other shapes never answers "same"
-MAO = {"pool": "", "name": "MAO", "vendor": "mao", "initials": "M", "color": "mao"}
+MAO = {"pool": "", "name": "Crossview", "vendor": "mao", "initials": "C", "color": "mao"}
 NO_ROLES = {"plan": None, "build": None, "check": None}
 ACTIVE = ("queued", "planning", "running", "pausing")
 FINAL = ("done", "cancelled")
@@ -282,7 +282,7 @@ def _note(code: str, text, at, task_id="") -> dict:
 
 
 def _event_entry(e: dict) -> dict | None:
-    """A user's decision (or a note MAO wrote) from the job's events list."""
+    """A user's decision (or a note Crossview wrote) from the job's events list."""
     action = _s(e.get("action"))
     if action in DECISIONS:
         return {"type": "decision", "at": _f(e.get("at")), "action": action, "task_id": _s(e.get("task_id")),
@@ -393,7 +393,7 @@ class _Project:
         return info
 
     def pick(self, route, tools: bool = True, not_vendor: str | None = None, closed=()) -> str | None:
-        """The pool MAO would take from a route now (installed, not paused or cooling)."""
+        """The pool Crossview would take from a route now (installed, not paused or cooling)."""
         for pool in route or []:
             if self.cfg is None or pool not in self.cfg.pools or pool in closed:
                 continue
@@ -716,7 +716,7 @@ class _Job:
         return [activity.simplify_command(c) for c in (self.tasks.get(tid) or {}).get("verify") or [] if c]
 
     def predicted(self, ttype: str, difficulty: str) -> tuple[str | None, str | None]:
-        """(builder, reviewer) MAO would pick for an item of this type and size."""
+        """(builder, reviewer) Crossview would pick for an item of this type and size."""
         key = (ttype, difficulty)
         if key not in self._predicted:
             b = self.proj.builder(ttype, difficulty) if self.proj is not None else None
@@ -795,7 +795,8 @@ class _Job:
                 "tokens": self.item_tokens(r["task_id"])}
 
     def task_now(self, tid: str) -> dict | None:
-        """What happens on this item right now: its live run, or MAO between runs (only while the job is active)."""
+        """What happens on this item right now: its live run, or Crossview between runs (only while the job is
+        active)."""
         if tid in self._nows:
             return self._nows[tid]
         now = None
@@ -821,8 +822,8 @@ class _Job:
         return now
 
     def now(self) -> dict | None:
-        """The newest live run; else MAO between runs; else MAO waiting while the job is active. While 不做了 is on
-        its way, MAO stopping it."""
+        """The newest live run; else Crossview between runs; else Crossview waiting while the job is active. While
+        不做了 is on its way, Crossview stopping it."""
         if self.cancelling:
             return {"agent": dict(MAO), "role": "", "kind": "cancel", "target": "", "live": True,
                     "since": _f(self.job.get("updated_at")), "run_id": "", "task_id": "", "tokens": 0}
@@ -1340,7 +1341,7 @@ class _Job:
                 "entries": entries}
 
     def _run_entries(self, r: dict, full: bool, now: dict | None) -> list[dict]:
-        """A run's bubble, plus MAO's acceptance check after a build or fix."""
+        """A run's bubble, plus Crossview's acceptance check after a build or fix."""
         try:
             out = [self._run_entry(r, full)]
             if r["kind"] == "work" and r["role"] != "conflict":
@@ -1709,7 +1710,7 @@ def _team(p: Path) -> dict:
 
 
 def project_team(path: str) -> dict:
-    """GET /api/project's team strip and who MAO would pick for each step now: {"team", "roles", "problem"}."""
+    """GET /api/project's team strip and who Crossview would pick for each step now: {"team", "roles", "problem"}."""
     key = str(path)
     hit = _TEAMS.get(key)
     if hit is not _MISS and time.monotonic() - hit[0] < TEAM_TTL:

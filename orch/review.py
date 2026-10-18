@@ -33,7 +33,7 @@ def review_prompt(task: Task, author_pool: str, second_round: bool = False) -> s
         "decisions) why it should stay. Do not raise new minor points you could have raised before.\n"
         if second_round else ""
     )
-    return f"""# Code review assignment from the MAO orchestrator
+    return f"""# Code review assignment from Crossview
 
 You are the **Reviewer**. You are in read-only mode: do NOT create, edit or delete files.
 Another agent (pool `{author_pool}`) implemented task **{task.id}: {task.title}**, and its

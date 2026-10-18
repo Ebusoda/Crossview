@@ -30,7 +30,7 @@ const I18N = (() => {
     "里检查 Claude 订阅登录，或填一个 API key。": " to check your Claude subscription login or add an API key.",
     "已连接本机 Claude 订阅": "Connected to the local Claude subscription",
     "使用本机 Claude Code 的订阅登录，共享订阅额度；仅管理员账号可用。": "Uses the local Claude Code subscription login and shared subscription limits; available to the admin only.",
-    "未找到 Claude Code，请在本机安装后重新打开 MAO。": "Claude Code was not found. Install it on this PC, then reopen MAO.",
+    "未找到 Claude Code，请在本机安装后重新打开 Crossview。": "Claude Code was not found. Install it on this PC, then reopen Crossview.",
     "请先在本机运行 claude auth login，用你的 Claude 订阅账号登录。": "Run claude auth login on this PC and sign in with your Claude subscription account.",
     "Claude 登录状态检查失败，请在本机运行 claude auth status。": "Login check failed. Run claude auth status on this PC.",
     "Claude 订阅仅供管理员本人使用": "The Claude subscription is available to the admin only",
@@ -40,7 +40,7 @@ const I18N = (() => {
     // ---- page frame, chat --------------------------------------------------------------
     "收起": "Close", "功能": "Sections", "聊天": "Chat", "画图": "Pictures", "视频": "Video", "文档": "Documents",
     "写程序": "Coding", "新对话": "New chat", "最近": "Recent", "对话列表": "Conversations", "设置": "Settings",
-    "修改密码": "Change password", "退出登录": "Sign out", "菜单": "Menu", "MAO · 全家的 AI 助手": "MAO · the family's AI helper",
+    "修改密码": "Change password", "退出登录": "Sign out", "菜单": "Menu", "Crossview · 全家的 AI 助手": "Crossview · the family's AI helper",
     "有什么可以帮你？": "How can I help?", "输入消息": "Message", "选择模型": "Choose a model", "发送": "Send", "停止": "Stop",
     "帮我写一段给家人的生日祝福，温暖一点，不要太长。": "Write a short, warm birthday message for someone in my family.",
     "写生日祝福": "Birthday message", "帮我把下面这段话翻译成日语：": "Translate the following into Japanese:",
@@ -58,8 +58,8 @@ const I18N = (() => {
     "先创建管理员账号（之后可以给家人加账号）": "Create the admin account first (you can add family members later)",
     "创建并进入": "Create and enter", "关闭": "Close", "原密码": "Current password", "新密码（至少 8 位）": "New password (at least 8 characters)",
     "取消": "Cancel", "保存": "Save", "密码已修改": "Password changed", "请先登录": "Please sign in first",
-    "连不上 MAO：请检查网络。在外面用时，手机上要打开 Tailscale，家里的电脑要开着 MAO。":
-      "Cannot reach MAO: check the network. Away from home, Tailscale must be on on your phone and MAO running on the home PC.",
+    "连不上 Crossview：请检查网络。在外面用时，手机上要打开 Tailscale，家里的电脑要开着 Crossview。":
+      "Cannot reach Crossview: check the network. Away from home, Tailscale must be on on your phone and Crossview running on the home PC.",
     "打不开：": "Cannot open: ",
     // ---- settings ------------------------------------------------------------------------
     "画图视频": "Pictures & video", "家人": "Family", "外出": "Away from home",
@@ -77,8 +77,8 @@ const I18N = (() => {
       "Pictures and video use Doubao (Volcano Engine Ark): add the Doubao API key on the Chat tab, then list the models here. Model names are in the Ark console's model square; enable them there first.",
     "画图模型（Seedream）": "Picture models (Seedream)", "视频模型（Seedance）": "Video models (Seedance)", "还没有模型": "No models yet",
     "添加项目": "Add a project", "正在检查…": "Checking…",
-    "外出时用你自己的手机或平板打开 MAO。走的是 Tailscale（只有你登录过的设备能连上的私人网络），不对外开放端口，别人打不开。":
-      "Open MAO from your own phone or tablet when away. It goes through Tailscale (a private network only your signed-in devices can join); no port is opened to the internet, so nobody else can open it.",
+    "外出时用你自己的手机或平板打开 Crossview。走的是 Tailscale（只有你登录过的设备能连上的私人网络），不对外开放端口，别人打不开。":
+      "Open Crossview from your own phone or tablet when away. It goes through Tailscale (a private network only your signed-in devices can join); no port is opened to the internet, so nobody else can open it.",
     "已经可以在外面打开": "Ready to open from outside", "已开启": "On", "手机连上 Tailscale 以后，在浏览器里打开：": "With Tailscale on, open this in the phone's browser:",
     "建议在手机浏览器里「添加到主屏幕」，以后点图标就能打开。家里人要用，也需要在他们的手机上装 Tailscale 并登录你的账号（或者你在 Tailscale 里邀请他们）。":
       "Tip: \"Add to Home Screen\" in the phone's browser makes it one tap away. Family members need Tailscale on their phones too, signed in to your account (or invited in Tailscale).",
@@ -87,7 +87,7 @@ const I18N = (() => {
     "在这台电脑上安装 Tailscale（": "Install Tailscale on this PC (", "），用一个账号登录。": ") and sign in with an account.",
     "在你的手机上也安装 Tailscale（App Store / 应用商店搜 Tailscale），": "Install Tailscale on your phone too (search for Tailscale in the app store),",
     "用同一个账号": "with the same account", "登录，打开连接开关。": "and switch it on.",
-    "关掉 MAO 的黑色窗口，双击": "Close MAO's black window, double-click", "重新打开。": "to restart it.",
+    "关掉 Crossview 的黑色窗口，双击": "Close Crossview's black window, double-click", "重新打开。": "to restart it.",
     "回到这一页，就能看到手机上要打开的地址。": "Come back to this page to see the address to open on the phone.",
     // ---- pictures, video -------------------------------------------------------------------
     "写下想要的画面，AI 帮你画出来；也可以上传一张照片，告诉它想怎么改。": "Describe a picture and the AI draws it; or upload a photo and say how to change it.",
@@ -253,8 +253,8 @@ const I18N = (() => {
     "商量": "Plan", "动手": "Build", "检查": "Check", "合并": "Merge",
     "看看": "Open", "去看看": "Take a look", "看过程": "Watch", "上次做的：": "Last task: ", "还没有交代过任务。": "No task given yet.",
     "空着": "is free", "有人正在用这个项目，做完后才能开始新任务。": "Someone else is using this project; a new task can start when they are done.",
-    "选这台电脑上的一个文件夹就行。还没准备好的文件夹，MAO 会自己准备好，不用再开命令行。":
-      "Just pick a folder on this PC. If it is not ready yet, MAO prepares it; no command line needed.",
+    "选这台电脑上的一个文件夹就行。还没准备好的文件夹，Crossview 会自己准备好，不用再开命令行。":
+      "Just pick a folder on this PC. If it is not ready yet, Crossview prepares it; no command line needed.",
     "还没有项目。添加一个文件夹，就可以把程序交给 AI 团队做。": "No project yet. Add a folder and the AI team can write programs in it.",
     "管理员还没有添加项目。添加以后，这里就能把程序交给 AI 团队做。":
       "The admin has not added a project yet. Once there is one, you can hand programming work to the AI team here.",
@@ -263,7 +263,7 @@ const I18N = (() => {
     "方案出来了，等着同意：": "The plan is ready, waiting for approval: ", "检查通过，等着合并：": "Checked and passed, waiting to be merged: ",
     "遇到问题，等着处理：": "Ran into a problem, waiting to be handled: ", "停下来了：": "Stopped: ", "正在暂停：": "Pausing: ",
     "在看项目、出方案": "is reading the project and drafting a plan", "正在准备商量方案": "Getting ready to plan",
-    "MAO 正在验收：": "MAO is running the checks: ", "MAO 正在合并：": "MAO is merging: ", "等下一个 AI 空出来：": "Waiting for the next free AI: ",
+    "Crossview 正在验收：": "Crossview is running the checks: ", "Crossview 正在合并：": "Crossview is merging: ", "等下一个 AI 空出来：": "Waiting for the next free AI: ",
     "马上开始：": "Starting soon: ", "正在检查：": "is reviewing: ", "正在检查这一项：": "Being checked: ", "正在写：": "is writing: ",
     "正在动手：": "Building: ", "刚才：": "Just now: ", "不到 1 分钟": "under a minute",
     "正在看": "is reading", "正在看目录": "is listing a folder", "正在找": "is searching", "正在改": "is editing", "正在写": "is writing",
@@ -278,7 +278,7 @@ const I18N = (() => {
     // one project
     "项目设置": "Project settings", "改名字": "Rename", "从列表里移除": "Remove from the list", "这个项目的 AI": "This project's AI",
     "这个项目能用的 AI": "AI available to this project", "还没有能用的 AI。请检查项目的 .agents/orch.toml。": "No AI available yet. Check the project's .agents/orch.toml.",
-    "没装好": "Not installed", "按量": "pay per use", "谁来做：MAO 安排": "Who does it: MAO decides",
+    "没装好": "Not installed", "按量": "pay per use", "谁来做：Crossview 安排": "Who does it: Crossview decides",
     "负责出方案": "drafts the plan", "负责写代码": "writes the code", "负责检查": "reviews the work",
     "只跑验收命令": "acceptance commands only", "暂时没有能用的 AI": "no AI available right now",
     "检查的总是另一家公司的 AI，不让它自己查自己。": "The reviewer is always an AI from another company, so no AI checks its own work.",
@@ -295,16 +295,16 @@ const I18N = (() => {
     "可以检查一下文件夹，或者从列表里移除后重新添加。": "Check the folder, or remove it from the list and add it again.",
     "给这个项目起个新名字": "A new name for this project", "已改名": "Renamed", "已从列表里移除": "Removed from the list",
     // adding a project
-    "选这台电脑上的一个文件夹。还没准备好的文件夹，MAO 会自己准备好（保存版本、写好设置），不用再开命令行。":
-      "Pick a folder on this PC. If it is not ready yet, MAO prepares it (versions, settings); no command line needed.",
+    "选这台电脑上的一个文件夹。还没准备好的文件夹，Crossview 会自己准备好（保存版本、写好设置），不用再开命令行。":
+      "Pick a folder on this PC. If it is not ready yet, Crossview prepares it (versions, settings); no command line needed.",
     "文件夹": "Folder", "浏览": "Browse", "上一级": "Up", "我的文件夹": "My folder", "这里面没有文件夹。": "No folders in here.",
     "文件夹太多，只列出了前 300 个。": "Too many folders; only the first 300 are listed.", "用这个文件夹": "Use this folder",
     "这个文件夹不能添加：": "This folder cannot be added:", "这个文件夹还不存在。": "This folder does not exist yet.",
-    "可以添加。MAO 会这样准备它：": "It can be added. MAO will prepare it like this:", "可以添加，它已经准备好了。": "It can be added; it is ready already.",
+    "可以添加。Crossview 会这样准备它：": "It can be added. Crossview will prepare it like this:", "可以添加，它已经准备好了。": "It can be added; it is ready already.",
     "这个文件夹现在不能直接添加。": "This folder cannot be added as it is.", "详细记录": "Details",
     "先把我还没保存的改动存一个版本": "Save my unsaved changes as a version first", "正在准备…": "Preparing…",
     "新建这个文件夹": "Create this folder", "让它能保存版本（git）": "Let it keep versions (git)", "把现在的文件存成第一个版本": "Save the current files as the first version",
-    "把你还没保存的改动存成一个版本": "Save your unsaved changes as a version", "写好 MAO 的设置（.agents 文件夹）": "Write MAO's settings (the .agents folder)",
+    "把你还没保存的改动存成一个版本": "Save your unsaved changes as a version", "写好 Crossview 的设置（.agents 文件夹）": "Write Crossview's settings (the .agents folder)",
     "加到项目列表里": "Add it to the project list",
     "请填写完整的文件夹路径（从盘符或 / 开始）。": "Enter the full folder path (starting with a drive letter or /).",
     "不能把整个磁盘当成项目，请选里面的一个文件夹。": "A whole disk cannot be a project; pick a folder on it.",
@@ -314,8 +314,8 @@ const I18N = (() => {
       "This is your personal folder (or contains it). It holds many private files and cannot be handed to the AI. Pick a folder just for the project.",
     "这是放私人文件的地方（桌面、文档、下载等），不能整个交给 AI。请在里面新建一个专门的项目文件夹。":
       "This is where private files live (Desktop, Documents, Downloads…); it cannot be handed to the AI as a whole. Make a folder just for the project inside it.",
-    "这是 MAO 自己的文件夹，不能当成项目。项目可以放在 MAO 的 playground 文件夹里。": "This is MAO's own folder and cannot be a project. Projects can go in MAO's playground folder.",
-    "这是 MAO 给 AI 干活用的临时文件夹，不能当成项目。": "This is a temporary folder where MAO's AI works; it cannot be a project.",
+    "这是 Crossview 自己的文件夹，不能当成项目。项目可以放在 Crossview 的 playground 文件夹里。": "This is Crossview's own folder and cannot be a project. Projects can go in Crossview's playground folder.",
+    "这是 Crossview 给 AI 干活用的临时文件夹，不能当成项目。": "This is a temporary folder where Crossview's AI works; it cannot be a project.",
     "这个文件夹在另一个项目（git 仓库）里面。请直接添加外面那个文件夹：": "This folder is inside another project (a git repository). Add the outer folder instead:",
     "这台电脑还没有安装 git。先安装 git，再来添加项目。": "Git is not installed on this PC. Install git first, then add the project.",
     "git 打不开这个文件夹。": "Git cannot open this folder.", "找不到这个文件夹，它的上一级文件夹也不存在。": "This folder was not found, and neither was the folder above it.",
@@ -362,25 +362,25 @@ const I18N = (() => {
     "进度": "Progress", "这次要做的": "Items", "这次任务的情况": "About this task", "改动": "Changes", "回到项目": "Back to the project",
     "第 1 步：商量方案": "Step 1: Plan", "第 2 步：动手": "Step 2: Build", "第 3 步：检查": "Step 3: Check", "第 4 步：合并": "Step 4: Merge",
     "全部做完了": "All done", "已经不做了": "Dropped", "已经暂停": "Paused", "自动合并": "auto merge", "合并前给你看": "you approve",
-    "MAO 正在验收：运行测试": "MAO is running the checks", "MAO 正在合并": "MAO is merging", "等下一个 AI 空出来": "Waiting for the next free AI",
+    "Crossview 正在验收：运行测试": "Crossview is running the checks", "Crossview 正在合并": "Crossview is merging", "等下一个 AI 空出来": "Waiting for the next free AI",
     "正在写代码": "is writing code", "正在修改": "is making changes", "正在检查改动": "is reviewing the changes",
     "正在解决合并冲突": "is resolving a merge conflict", "正在工作": "is working", "命令：": "Command: ",
     "订阅，不另外花钱": "subscription, no extra cost", "按量计费": "pay per use",
-    "MAO 在收尾": "MAO is wrapping up", "现在：": "Now: ", "还没用 token": "No tokens used yet",
+    "Crossview 在收尾": "Crossview is wrapping up", "现在：": "Now: ", "还没用 token": "No tokens used yet",
     // activity rows
     "看": "Read", "列出": "List", "找": "Search", "改": "Edit", "写": "Write", "删": "Delete", "运行": "Run", "查资料": "Look up",
     "列计划": "To-do list", "派帮手": "Helper", "用工具": "Tool", "出错": "Error", "额度用完": "Out of quota", "看任务说明": "Read the task brief",
     "记下进度": "Update the progress notes", "写检查意见": "Write the review", "写任务笔记": "Write task notes",
     "进行中…": "Running…", "二进制": "binary", "看原始记录（命令和输出）": "Raw log (commands and output)",
-    "最后的回复": "Final reply", "出错信息": "Error message", "MAO 验收的输出": "Output of MAO's checks", "检查报告": "Review report",
+    "最后的回复": "Final reply", "出错信息": "Error message", "Crossview 验收的输出": "Output of Crossview's checks", "检查报告": "Review report",
     "没有记录。": "Nothing recorded.", "正在看改动…": "Looking at the changes…", "开始了…": "Started…",
     "没读懂它的检查结果。": "Could not read its review.", "这一轮没有正常结束。": "This round did not end normally.",
     // roles and states
     "出方案": "Plan", "写代码": "Code", "修改中": "Fixing", "解决冲突": "Conflict", "写代码中": "Coding", "检查中": "Reviewing",
     "解决冲突中": "Resolving a conflict", "做完了": "Done", "等着上场": "Up next", "验收中": "Running checks", "合并中": "Merging",
     "等 AI 空出来": "Waiting for a free AI", "做好了，等合并": "Done, waiting to merge", "卡住了": "Stuck",
-    "要改": "Must fix", "小问题": "Minor", "通过": "Passed", "没通过": "Failed", "MAO 自己又跑了一遍验收": "MAO ran the checks again itself",
-    "MAO 合并好了": "MAO merged it", "有一条记录。": "A note was recorded.", "看全文": "Show all", "带上了聊天里的讨论": "with the chat discussion",
+    "要改": "Must fix", "小问题": "Minor", "通过": "Passed", "没通过": "Failed", "Crossview 自己又跑了一遍验收": "Crossview ran the checks again itself",
+    "Crossview 合并好了": "Crossview merged it", "有一条记录。": "A note was recorded.", "看全文": "Show all", "带上了聊天里的讨论": "with the chat discussion",
     "你": "You", "商量方案": "Planning", "没有商量完": "Planning did not finish", "来写": "writes it", "写的": "wrote it", "来检查": "reviews it", "会改": "Will change",
     "验收通过": "checks passed", "验收没通过": "checks failed", "展开": "Show",
     "没有做出计划。": "No plan was made.", "还在商量，计划出来后会列在这里。": "Still planning; the items show here once there is a plan.",
@@ -399,13 +399,13 @@ const I18N = (() => {
     // notes in the conversation
     "这次没有别家的 AI 检查，只跑了验收命令。": "No AI from another company reviewed this; only the acceptance commands ran.",
     "这一项卡住了，停了下来。": "This item got stuck and stopped.", "这一项没做成。": "This item did not get done.",
-    "MAO 重启过，这一步停在了一半。": "MAO restarted; this step stopped halfway.", "合并时出了问题，已经撤销。": "Merging went wrong and was undone.",
+    "Crossview 重启过，这一步停在了一半。": "Crossview restarted; this step stopped halfway.", "合并时出了问题，已经撤销。": "Merging went wrong and was undone.",
     "换了另一个 AI 接着做。": "Another AI took over.", "这一项不做了。": "This item was dropped.", "商量方案没有成功。": "Planning did not work out.",
-    "MAO 内部出了点问题。": "Something went wrong inside MAO.", "你的操作没能执行。": "Your action could not be carried out.",
-    "MAO 重启过，之前排着的操作没有执行。": "MAO restarted; the action that was waiting did not run.",
+    "Crossview 内部出了点问题。": "Something went wrong inside Crossview.", "你的操作没能执行。": "Your action could not be carried out.",
+    "Crossview 重启过，之前排着的操作没有执行。": "Crossview restarted; the action that was waiting did not run.",
     "它没能做完这一轮。": "It could not finish this round.", "它的额度用完了，这一轮停了下来。": "It ran out of quota; this round stopped.",
     "它没有登录（或者 key 不对），这一轮没能开始。": "It is not signed in (or the key is wrong); this round could not start.",
-    "做得太久了，MAO 让它停了下来。": "It took too long; MAO stopped it.", "它意外退出了。": "It quit unexpectedly.",
+    "做得太久了，Crossview 让它停了下来。": "It took too long; Crossview stopped it.", "它意外退出了。": "It quit unexpectedly.",
     "这台电脑上找不到它。": "It is not installed on this PC.", "这一轮被打断了。": "This round was interrupted.",
     // the cards where the user decides
     "它们已经停下来了": "They have stopped", "其他的还在做": "The rest are still going", "继续后会执行：": "After you continue: ",
@@ -419,7 +419,7 @@ const I18N = (() => {
     "测试结果": "Tests", "检查结果": "Review", "用时": "Time", "花费": "Cost", "回答它": "Answer it", "它问：": "It asks:", "重新商量": "Plan again",
     "检查一直没通过，停下来了": "The review kept failing, so it stopped", "它有个问题要问你": "It has a question for you",
     "现在没有能用的 AI": "No AI is available right now", "试了好几次还没做成": "Several tries, still not done", "花费到上限了": "The cost limit was reached",
-    "没有安排谁来做这类事": "Nobody is set to do this kind of work", "MAO 出了点问题": "Something went wrong in MAO", "停下来了，要你看一下": "Stopped; please take a look",
+    "没有安排谁来做这类事": "Nobody is set to do this kind of work", "Crossview 出了点问题": "Something went wrong in Crossview", "停下来了，要你看一下": "Stopped; please take a look",
     "检查的 AI 改了几轮还是不同意。可以写一句意见让它再改，也可以照样合并或者不要这一项。":
       "The reviewing AI still does not agree after several rounds. Write a note so it changes it again, or merge anyway, or drop this item.",
     "它停下来等你回答。点「回答它」写下你的回答，它会接着做。": "It stopped to wait for your answer. Tap \"Answer it\" to write your answer and it carries on.",
@@ -427,14 +427,14 @@ const I18N = (() => {
       "None of the AIs that can do this is available now (out of quota or not signed in). Try again in a while.",
     "做了好几轮都没有通过验收。可以写一句意见再改，或者不要这一项。": "Several rounds did not pass the checks. Write a note so it tries again, or drop this item.",
     "这一项花的钱到了设定的上限。": "This item reached its cost limit.", "项目设置里没有安排谁来做这类事。": "The project settings name nobody for this kind of work.",
-    "MAO 在安排这一项时出了错。可以再试一次。": "MAO ran into an error setting up this item. You can try again.", "这一项停了下来。": "This item stopped.",
-    "商量没成功": "Planning did not work out", "MAO 重启过，这件事停在了一半": "MAO restarted; this task stopped halfway",
+    "Crossview 在安排这一项时出了错。可以再试一次。": "Crossview ran into an error setting up this item. You can try again.", "这一项停了下来。": "This item stopped.",
+    "商量没成功": "Planning did not work out", "Crossview 重启过，这件事停在了一半": "Crossview restarted; this task stopped halfway",
     "出了问题，停下来了": "Something went wrong, so it stopped", "剩下的几项做不了了": "The remaining items cannot be done",
     "出方案的 AI 没能给出能用的方案。": "The planning AI could not come up with a usable plan.", "它们停在了这里。": "They stopped here.",
     "可以接着做，或者重新商量。": "You can continue, or plan again.", "点「继续做」接着来，或者不做了。": "Tap \"Continue\" to carry on, or drop the task.",
     "可以重新商量，或者不做了。": "You can plan again, or drop the task.",
     "没有可以接着做的了。点「不做了」结束这件事。": "Nothing is left to continue. Tap \"Drop task\" to end it.",
-    "MAO 在做这件事时出了错。": "MAO ran into an error on this task.",
+    "Crossview 在做这件事时出了错。": "Crossview ran into an error on this task.",
     "剩下的项要用到前面没做成（或者不要了）的那一项，做不了了。": "The remaining items need an earlier item that was not done (or was dropped), so they cannot be done.",
     "它的改动和项目里别的改动冲突了，合并不进去。点「让它修一下」，它会把冲突解决掉。":
       "Its changes clash with other changes in the project and cannot be merged. Tap \"Let it fix this\" and it resolves the clash.",
@@ -451,14 +451,14 @@ const I18N = (() => {
     "你的项目文件夹还没有保存过版本，没法放进去。": "Your project folder has no saved versions yet, so nothing can be put in.",
     "你的项目文件夹现在不在平常用的版本上（比如正在看以前的版本）。为了不弄乱你的文件，这次先不放。":
       "Your project folder is not on its usual version right now (for example, you are looking at an older version). To keep your files safe, nothing is put in this time.",
-    "你的项目文件夹现在切到了 MAO 自己用的版本上。为了不弄乱你的文件，这次先不放。":
-      "Your project folder is switched to MAO's own version right now. To keep your files safe, nothing is put in this time.",
+    "你的项目文件夹现在切到了 Crossview 自己用的版本上。为了不弄乱你的文件，这次先不放。":
+      "Your project folder is switched to Crossview's own version right now. To keep your files safe, nothing is put in this time.",
     "你的项目文件夹里有一个操作还没做完（比如合并到一半）。为了不弄乱你的文件，这次先不放。":
       "Something in your project folder is not finished (for example, a merge stopped halfway). To keep your files safe, nothing is put in this time.",
-    "MAO 正在做这个项目的任务，做完才能放。": "MAO is working on a task in this project; you can put the changes in when it is done.",
+    "Crossview 正在做这个项目的任务，做完才能放。": "Crossview is working on a task in this project; you can put the changes in when it is done.",
     "没有新的改动要放进去。": "There are no new changes to put in.",
-    "MAO 上次停下来的时候，有改动还没检查完，所以先不放。接着做完这件事（或者选「不做了」）以后就能放了。":
-      "When MAO last stopped, some changes had not been checked yet, so nothing is put in for now. You can put them in once the task is finished (or dropped with \"Drop task\").",
+    "Crossview 上次停下来的时候，有改动还没检查完，所以先不放。接着做完这件事（或者选「不做了」）以后就能放了。":
+      "When Crossview last stopped, some changes had not been checked yet, so nothing is put in for now. You can put them in once the task is finished (or dropped with \"Drop task\").",
     "刚才又有改动做好了，要放进去的文件变了。请再看一下，没问题就再点「确定」。":
       "More changes were finished just now, so the files to put in have changed. Please look again and tap \"OK\" if it looks right.",
     "没有放成，你的项目文件夹没有变。": "That did not work; your project folder has not changed.",
@@ -488,8 +488,8 @@ const I18N = (() => {
     // --- end of job view (C-job) ---
     // --- 讨论 (discuss.js; server messages of orch/discuss*.py and maoweb/discuss.py) ---
     "讨论": "Discuss",
-    "GPT 和 Claude 先各自分析，再互相挑错，你来拍板。批准后由 Cowork 从 MAO 领取方案去开发。":
-      "GPT and Claude each analyse it first, then pick holes in each other's plans; you decide. Once you approve, Cowork takes the plan from MAO and builds it.",
+    "GPT 和 Claude 先各自分析，再互相挑错，你来拍板。批准后由 Cowork 从 Crossview 领取方案去开发。":
+      "GPT and Claude each analyse it first, then pick holes in each other's plans; you decide. Once you approve, Cowork takes the plan from Crossview and builds it.",
     "马上开始": "Starting", "正在讨论": "Discussing", "停在了中途": "Stopped halfway", "出错停下了": "Stopped on an error",
     "已批准": "Approved", "已停止": "Stopped",
     "独立分析": "Independent analysis", "评审": "Review", "交换意见": "Exchange", "修订方案": "Revision", "继续构思": "More ideas",
@@ -528,12 +528,12 @@ const I18N = (() => {
     "这台电脑上的 claude 版本不支持 --effort，更新 Claude Code 后可用": "The claude on this PC does not support --effort; update Claude Code to use it",
     "没找到这个命令": "Command not found", "订阅调用没有按量价格，只显示 token": "Subscription calls have no per-use price; only tokens are shown",
     "≈$ 是 Claude Code 自己估算的 API 价格，订阅不另收费": "≈$ is Claude Code's own estimate at API prices; the subscription costs nothing extra",
-    "这个文件夹离 MAO 自己的数据太近，模型会读到别的讨论，所以没有开始":
-      "This folder is too close to MAO's own data, so the models could read other discussions; it did not start",
+    "这个文件夹离 Crossview 自己的数据太近，模型会读到别的讨论，所以没有开始":
+      "This folder is too close to Crossview's own data, so the models could read other discussions; it did not start",
     "这个项目的文件夹不见了": "This project's folder is gone",
     "codex 的设置文件读不出来，没法确认已经关掉它的 MCP 工具，所以没有开始":
       "codex's settings file cannot be read, so its MCP tools cannot be switched off for sure; it did not start",
-    "codex 设置里有一个 MAO 关不掉的 MCP 工具，所以没有开始": "codex's settings have an MCP tool MAO cannot switch off; it did not start",
+    "codex 设置里有一个 Crossview 关不掉的 MCP 工具，所以没有开始": "codex's settings have an MCP tool Crossview cannot switch off; it did not start",
     "继续让 GPT 构思": "Let GPT keep developing it", "交给 Claude 评审": "Hand to Claude for review", "再来一轮": "One more round",
     "改需求或加约束": "Change the requirement or add a constraint", "批准，交给 Cowork": "Approve and hand to Cowork",
     "否掉当前方案…": "Reject the current plan…",
@@ -553,7 +553,7 @@ const I18N = (() => {
     "暂停了讨论": "paused the discussion", "接着讨论": "resumed the discussion", "停止了讨论": "stopped the discussion",
     "重要": "major", "次要": "minor", "没有回应": "no reply", "同意": "agrees", "不同意": "disagrees",
     "展开 GPT 的原始意见": "Open GPT's raw answer", "展开 Claude 的原始意见": "Open Claude's raw answer",
-    "事实（MAO 记录）": "Fact (recorded by MAO)", "假设": "Assumption", "模型建议": "Model suggestion", "你的决定": "Your decision",
+    "事实（Crossview 记录）": "Fact (recorded by Crossview)", "假设": "Assumption", "模型建议": "Model suggestion", "你的决定": "Your decision",
     "需求变更与约束": "Requirement changes and constraints", "已批准决策": "Approved decisions", "被否方案（及原因）": "Rejected plans (and why)",
     "待解决问题": "Open questions", "事实与假设": "Facts and assumptions", "模型评审记录": "Model review record", "Cowork 反馈": "Cowork feedback",
     "同一项目以前的讨论": "Earlier discussions of this project",
@@ -565,7 +565,7 @@ const I18N = (() => {
     "还没有讨论。写下想法，让 GPT 和 Claude 先讨论。": "No discussions yet. Write down an idea and let GPT and Claude discuss it first.",
     "GPT · codex（ChatGPT 订阅）": "GPT · codex (ChatGPT subscription)", "Claude · claude（Max 订阅）": "Claude · claude (Max subscription)",
     "最近 7 天：": "Last 7 days: ", "模型": "Model", "CLI 默认": "CLI default", "推理强度": "Reasoning effort", "每轮字数上限": "Word limit per turn",
-    "MAO 在提示里要求，并标出超出的回答": "MAO asks for it in the prompt and flags answers that go over",
+    "Crossview 在提示里要求，并标出超出的回答": "Crossview asks for it in the prompt and flags answers that go over",
     "温度": "Temperature", "最大输出 token": "Max output tokens", "费用": "Cost", "空 = CLI 默认": "empty = CLI default",
     "要讨论什么": "What to discuss", "关联项目": "Project", "谁先发言": "Who speaks first", "第一个发言的一方也负责修订方案": "The first speaker also revises the plan",
     "写下想法或需求：要做什么、给谁用、有什么限制。GPT 和 Claude 会先各自分析，再互相挑错。":
@@ -589,7 +589,7 @@ const I18N = (() => {
     "看决策记录": "See the decision record", "这场讨论已停止，记录会留着。": "This discussion is stopped; the record stays.",
     "这是": "This is a", "其他选择": "Other choices", "回答这个问题": "Answer this question", "（读不出结构）": "(unreadable)",
     "备注：": "Note: ", "原因：": "Reason: ", "被否：": "Rejected: ", "自称事实": "claimed as fact", "来源存在": "source exists",
-    "来源找不到": "source not found", "已回答": "answered", "方案版本": "Plan versions", "MAO 只核对了提交是否存在": "MAO only checked that the commit exists",
+    "来源找不到": "source not found", "已回答": "answered", "方案版本": "Plan versions", "Crossview 只核对了提交是否存在": "Crossview only checked that the commit exists",
     "看原始意见": "Open the raw answer", "提交存在": "the commit exists", "项目仓库里没有这个提交": "no such commit in the project repository", "没法核对这个提交": "the commit could not be checked",
     "在项目仓库里存在": "exists in the project repository", "项目仓库里没有，来源找不到": "not in the project repository; source not found",
     "没法核对": "could not be checked",
@@ -602,8 +602,8 @@ const I18N = (() => {
     "没有这场讨论": "No such discussion",
     "讨论记录正忙，请稍后再试": "The discussion record is busy; try again shortly",
     "这场讨论已经到上限了：请批准、修改需求或停止": "This discussion has reached its limit: approve, change the requirement, or stop",
-    "MAO 自己的数据文件夹在这个项目里面，模型会读到别的讨论和家人的聊天，不能关联这个项目":
-      "MAO's own data folder is inside this project, so the models would read other discussions and the family's chats; this project cannot be used",
+    "Crossview 自己的数据文件夹在这个项目里面，模型会读到别的讨论和家人的聊天，不能关联这个项目":
+      "Crossview's own data folder is inside this project, so the models would read other discussions and the family's chats; this project cannot be used",
     "没有这一步的原始记录": "There is no raw record of this step",
     "需求写得太长了，最多 8000 字": "The requirement is too long; at most 8000 characters",
     "第一个发言的只能是 GPT 或 Claude": "The first speaker must be GPT or Claude", "模型名称不对": "That model name is not valid",
@@ -617,8 +617,8 @@ const I18N = (() => {
     // --- end of 讨论 ---
     // --- the old task dispatch, switched off (Settings → 旧功能, orch/legacy.py) ---
     "旧功能": "Legacy", "旧的派活功能": "Old task dispatch", "开": "On", "关": "Off",
-    "MAO 早期自己拆任务、派给 AI、合并代码：项目页、聊天里的「交给项目」、Agent 页的控制面板、命令行的 task / run / plan 等。现在开发交给 Cowork，这些默认关闭；数据都还在，随时可以打开。":
-      "In its early days MAO split work into tasks itself, handed them to AI agents and merged the code: the Projects page, " +
+    "Crossview 早期自己拆任务、派给 AI、合并代码：项目页、聊天里的「交给项目」、Agent 页的控制面板、命令行的 task / run / plan 等。现在开发交给 Cowork，这些默认关闭；数据都还在，随时可以打开。":
+      "In its early days Crossview split work into tasks itself, handed them to AI agents and merged the code: the Projects page, " +
       "\"Hand to a project\" in chat, the control panel on the Agent page, and the task / run / plan commands. Development now " +
       "goes to Cowork, so all of this is off by default; its data is all still there, and you can turn it on at any time.",
     "使用旧的派活功能": "Use the old task dispatch",
@@ -657,9 +657,9 @@ const I18N = (() => {
     // --- phone alerts: Settings → 手机提醒 (app.js renderNotify) ---
     "手机提醒": "Phone alerts", "开启手机提醒": "Turn on phone alerts",
     "已开启手机提醒": "Phone alerts are on", "已关闭手机提醒": "Phone alerts are off",
-    "有事等你的时候（讨论要你决定、Cowork 卡住了、Claude Code 等你批准……），MAO 往你的手机发一条短提醒。用的是 ntfy App，免费，不用注册。":
+    "有事等你的时候（讨论要你决定、Cowork 卡住了、Claude Code 等你批准……），Crossview 往你的手机发一条短提醒。用的是 ntfy App，免费，不用注册。":
       "When something is waiting for you (a discussion needs your decision, Cowork is stuck, Claude Code wants your approval…), " +
-      "MAO sends a short alert to your phone. It uses the ntfy app: free, with no sign-up.",
+      "Crossview sends a short alert to your phone. It uses the ntfy app: free, with no sign-up.",
     "服务器": "Server", "自建服务器才需要改": "Change this only for your own ntfy server",
     "主题": "Topic", "换一个": "New topic", "订阅地址：": "Subscribe link: ",
     "换一个主题？换了以后，手机上要重新订阅新的主题，旧的主题不会再收到提醒。":
@@ -689,15 +689,15 @@ const I18N = (() => {
     "你在这台电脑前时不发 Claude Code 的提醒：最近": "No Claude Code alerts while you are at this PC: none if the keyboard or mouse was used in the last",
     "分钟内动过键盘或鼠标就不发（0 = 总是发）": "minutes (0 = always send)",
     "Claude Code 钩子：": "Claude Code hook: ", "已安装": "Installed", "还没有安装": "Not installed", "安装": "Install",
-    "需要重新安装（MAO 或 Python 换了位置）": "Needs reinstalling (MAO or Python has moved)",
+    "需要重新安装（Crossview 或 Python 换了位置）": "Needs reinstalling (Crossview or Python has moved)",
     "这台电脑上没有找到 Claude Code": "Claude Code was not found on this PC",
     "Claude Code 的 settings.json 读不懂，先修好它": "Claude Code's settings.json cannot be read; fix it first",
     "上面两项 Claude Code 提醒要靠这个钩子。会在这台电脑的 Claude Code 设置里加一个钩子，改之前先备份 settings.json":
       "The two Claude Code alerts above need this hook. It is added to Claude Code's settings on this PC; settings.json is backed up first",
     "原来的 settings.json 已备份为": "The original settings.json was backed up as",
-    "从 Claude Code 的设置里移除 MAO 的钩子？": "Remove MAO's hook from Claude Code's settings?",
+    "从 Claude Code 的设置里移除 Crossview 的钩子？": "Remove Crossview's hook from Claude Code's settings?",
     "已安装 Claude Code 钩子": "Claude Code hook installed", "钩子已经装好，没有改动": "The hook is already installed; nothing changed",
-    "已移除 Claude Code 钩子": "Claude Code hook removed", "没有找到 MAO 的钩子，没有改动": "MAO's hook was not there; nothing changed",
+    "已移除 Claude Code 钩子": "Claude Code hook removed", "没有找到 Crossview 的钩子，没有改动": "Crossview's hook was not there; nothing changed",
     "提醒用的语言": "Language of the alerts",
     "最近的提醒": "Recent alerts", "刷新": "Refresh", "还没有发过提醒。": "No alerts sent yet.",
     "后台检查：正在运行": "Background check: running",
@@ -725,8 +725,8 @@ const I18N = (() => {
     [/^删除 (.+) 的账号和全部对话？$/, (m) => `Delete ${m[1]}'s account and all conversations?`],
     [/^(\d+) 分钟前$/, (m) => `${m[1]} min ago`], [/^(\d+) 小时前$/, (m) => `${m[1]} h ago`],
     [/^(\d+) 月 (\d+) 日$/, (m) => `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m[1] - 1]} ${m[2]}`],
-    [/^这台电脑已经装好 Tailscale（地址 (.+)），但 MAO 这次没有在这个地址上打开。 请关掉 MAO 的黑色窗口，双击$/,
-      (m) => `Tailscale is installed on this PC (address ${m[1]}), but MAO did not open on that address this time. Close MAO's black window, double-click`],
+    [/^这台电脑已经装好 Tailscale（地址 (.+)），但 Crossview 这次没有在这个地址上打开。 请关掉 Crossview 的黑色窗口，双击$/,
+      (m) => `Tailscale is installed on this PC (address ${m[1]}), but Crossview did not open on that address this time. Close Crossview's black window, double-click`],
     [/^材料：(.+)$/, (m) => `Material: ${m[1]}`],
     [/^共 (\d+) 行，完整结果在 Excel 里$/, (m) => `${m[1]} rows in all; the full result is in the Excel file`],
     [/^这些没有填：(.+)，下载后在 Word 里补上。$/, (m) => `Left empty: ${m[1]}. Add them in Word after downloading.`],
@@ -805,7 +805,7 @@ const I18N = (() => {
     [/^准备项目时出错了：(.+)$/, (m) => `Preparing the project failed: ${m[1]}`],
     [/^这个项目还有一件没做完：「(.+)」。先把它做完或点「不做了」。$/, (m) => `This project still has an unfinished task: "${m[1]}". Finish or drop it first.`],
     [/^(.+) 正在用这个项目，等它做完再交代新任务$/, (m) => `${m[1]} is using this project; give it a new task when that is done`],
-    [/^MAO 内部出错了，请稍后再试（(.+)）$/, (m) => `Something went wrong inside MAO; try again later (${m[1]})`],
+    [/^Crossview 内部出错了，请稍后再试（(.+)）$/, (m) => `Something went wrong inside Crossview; try again later (${m[1]})`],
     // --- end of projects page (C-projects) ---
     // --- job view (C-job) ---
     [/^(\d+) 月 (\d+) 日 (\d+:\d\d)$/, (m) => `${one(`${m[1]} 月 ${m[2]} 日`)} ${m[3]}`],
@@ -834,8 +834,8 @@ const I18N = (() => {
     [/^还有 (\d+) 个新文件$/, (m) => `and ${m[1]} more new file${m[1] === "1" ? "" : "s"}`],
     [/^后来又有 (\d+) 个文件的改动，到项目页放进去$/,
       (m) => `${m[1]} more changed file${m[1] === "1" ? "" : "s"} came later: put ${m[1] === "1" ? "it" : "them"} in from the project page`],
-    [/^MAO 想删掉的这些文件还在：(.+)。可能有别的程序正在用它们，可以关掉后自己删掉。$/,
-      (m) => `These files MAO wanted to delete are still there: ${names(m[1])}. Another program may be using them; close it and delete them yourself.`],
+    [/^Crossview 想删掉的这些文件还在：(.+)。可能有别的程序正在用它们，可以关掉后自己删掉。$/,
+      (m) => `These files Crossview wanted to delete are still there: ${names(m[1])}. Another program may be using them; close it and delete them yourself.`],
     [/^你的项目文件夹里有还没保存的改动：(.+)。为了不弄乱你的文件，这次先不放。$/,
       (m) => `Your project folder has unsaved changes: ${names(m[1])}. To keep your files safe, nothing is put in this time.`],
     [/^你的项目文件夹里已经有同名的文件：(.+)。放进去会把它们盖掉，所以这次先不放。$/,
@@ -864,9 +864,9 @@ const I18N = (() => {
     [/^方案 v(\d+)$/, (m) => `Plan v${m[1]}`],
     [/^批准方案 v(\d+)：$/, (m) => `Approved plan v${m[1]}: `], [/^否掉方案 v(\d+)：$/, (m) => `Rejected plan v${m[1]}: `],
     [/^已被 (.+) 领取（(.+)）$/, (m) => `Taken by ${m[1]} (${one(m[2]) ?? m[2]})`], [/^已被 (.+) 领取$/, (m) => `Taken by ${m[1]}`],
-    [/^提交 (\S+) 在项目仓库里存在（MAO 只核对了这一点）$/, (m) => `Commit ${m[1]} exists in the project repository (MAO checked only this)`],
-    [/^在 Cowork 里说：用 MAO 的 mao_get_brief 领取 (\S+) 开始开发$/,
-      (m) => `In Cowork, say: "Take ${m[1]} with MAO's mao_get_brief and start building"`],
+    [/^提交 (\S+) 在项目仓库里存在（Crossview 只核对了这一点）$/, (m) => `Commit ${m[1]} exists in the project repository (Crossview checked only this)`],
+    [/^在 Cowork 里说：用 Crossview 的 crossview_get_brief 领取 (\S+) 开始开发$/,
+      (m) => `In Cowork, say: "Take ${m[1]} with Crossview's crossview_get_brief and start building"`],
     // --- end of 讨论 ---
     // --- the old task dispatch, switched off ---
     [/^还有 (\d+) 个项目任务在运行。关闭后它们会自己跑完，但在网页上看不到，直到重新打开。确定关闭？$/,
@@ -907,7 +907,7 @@ const I18N = (() => {
                ".job-head h3, .t-title, .p-display, .chip, [data-no-tr], textarea, pre, code";
   const ATTRS = ["placeholder", "title", "aria-label"];
 
-  const OWN = ".msg-meta";   // MAO's own buttons under a message (复制) are translated all the same
+  const OWN = ".msg-meta";   // Crossview's own buttons under a message (复制) are translated all the same
   function skip(node) { const el = node.nodeType === 1 ? node : node.parentElement; return !el || (!!el.closest(SKIP) && !el.closest(OWN)); }
   // text inside SKIP stays as it is; labels on buttons there (aria-label, title) are still translated
   function walk(root, attrsOnly = false) {

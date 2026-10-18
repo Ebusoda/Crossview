@@ -1,11 +1,11 @@
 "use strict";
-// MAO web front end. No framework, no CDN: everything is served by the PC itself.
+// Crossview web front end. No framework, no CDN: everything is served by the PC itself.
 
 const $ = (sel) => document.querySelector(sel);
 const state = { user: null, models: [], model: null, convId: null, convs: [], streaming: null };
 
 // ---- api ---------------------------------------------------------------------
-const OFFLINE = "连不上 MAO：请检查网络。在外面用时，手机上要打开 Tailscale，家里的电脑要开着 MAO。";
+const OFFLINE = "连不上 Crossview：请检查网络。在外面用时，手机上要打开 Tailscale，家里的电脑要开着 Crossview。";
 async function api(path, opts = {}) {
   let res;
   try {
@@ -574,7 +574,7 @@ function setBadge(jobs, discuss = 0) {
   jobs = Number(jobs) || 0; discuss = Number(discuss) || 0;
   const show = (id, n) => { const el = $(id); el.textContent = n > 9 ? "9+" : String(n); el.hidden = !n; el.setAttribute("aria-label", `${n} 件等你决定`); };
   show("#nav-badge", jobs); show("#nav-discuss-badge", discuss); show("#menu-badge", jobs + discuss);
-  document.title = (jobs + discuss ? `(${jobs + discuss}) ` : "") + "MAO";
+  document.title = (jobs + discuss ? `(${jobs + discuss}) ` : "") + "Crossview";
 }
 async function refreshBadge() {
   if (!state.user) return;
@@ -677,7 +677,7 @@ function tile(kind, it) {
   if (it.status === "done" && it.url) {
     if (kind === "image") el.classList.add("tap-view");   // on phones the buttons live in the big view
     const a = document.createElement("a"); a.className = "mini"; a.href = it.url; a.textContent = "保存";
-    a.download = `mao-${it.id}.${kind === "video" ? "mp4" : "png"}`; actions.appendChild(a);
+    a.download = `crossview-${it.id}.${kind === "video" ? "mp4" : "png"}`; actions.appendChild(a);
     if (kind === "image") { add("修改", () => useSource("image", it)); add("做成视频", () => { showView("video"); useSource("video", it); }); }
   }
   if (it.status === "failed") add("再试一次", () => retry(kind, it));
@@ -692,7 +692,7 @@ function openViewer(kind, it) {
   $("#viewer-media").innerHTML = `<img src="${it.url}" alt="${esc(it.prompt || "")}">`;
   $("#viewer-prompt").textContent = it.prompt || "";
   const bar = $("#viewer-actions"); bar.innerHTML = "";
-  const a = document.createElement("a"); a.className = "ghost"; a.href = it.url; a.download = `mao-${it.id}.png`; a.textContent = "保存到手机 / 电脑"; bar.appendChild(a);
+  const a = document.createElement("a"); a.className = "ghost"; a.href = it.url; a.download = `crossview-${it.id}.png`; a.textContent = "保存到手机 / 电脑"; bar.appendChild(a);
   const add = (label, fn) => { const b = document.createElement("button"); b.className = "ghost"; b.textContent = label; b.onclick = () => { $("#viewer").close(); fn(); }; bar.appendChild(b); };
   add("修改这张", () => useSource("image", it));
   add("做成视频", () => { showView("video"); useSource("video", it); });
@@ -849,9 +849,9 @@ async function renderRemote() {
   const steps = `<ol class="steps">
       <li>在这台电脑上安装 Tailscale（<a href="https://tailscale.com/download" target="_blank" rel="noopener noreferrer">tailscale.com/download</a>），用一个账号登录。</li>
       <li>在你的手机上也安装 Tailscale（App Store / 应用商店搜 Tailscale），<strong>用同一个账号</strong>登录，打开连接开关。</li>
-      <li>关掉 MAO 的黑色窗口，双击 <code>run_web.cmd</code> 重新打开。</li>
+      <li>关掉 Crossview 的黑色窗口，双击 <code>run_web.cmd</code> 重新打开。</li>
       <li>回到这一页，就能看到手机上要打开的地址。</li></ol>`;
-  const head = `<p class="small-note">外出时用你自己的手机或平板打开 MAO。走的是 Tailscale（只有你登录过的设备能连上的私人网络），不对外开放端口，别人打不开。</p>`;
+  const head = `<p class="small-note">外出时用你自己的手机或平板打开 Crossview。走的是 Tailscale（只有你登录过的设备能连上的私人网络），不对外开放端口，别人打不开。</p>`;
   if (d.urls.length) {
     box.innerHTML = head + `<div class="card"><div class="card-head"><h3>已经可以在外面打开</h3><span class="badge on">已开启</span></div>
       <p class="small-note">手机连上 Tailscale 以后，在浏览器里打开：</p>
@@ -862,8 +862,8 @@ async function renderRemote() {
     });
   } else if (d.tailscale.length) {
     box.innerHTML = head + `<div class="card"><div class="card-head"><h3>还差一步</h3><span class="badge">未开启</span></div>
-      <p class="small-note">这台电脑已经装好 Tailscale（地址 ${d.tailscale.map(esc).join("、")}），但 MAO 这次没有在这个地址上打开。
-      请关掉 MAO 的黑色窗口，双击 <code>run_web.cmd</code> 重新打开，再回到这一页。</p></div>`;
+      <p class="small-note">这台电脑已经装好 Tailscale（地址 ${d.tailscale.map(esc).join("、")}），但 Crossview 这次没有在这个地址上打开。
+      请关掉 Crossview 的黑色窗口，双击 <code>run_web.cmd</code> 重新打开，再回到这一页。</p></div>`;
   } else {
     box.innerHTML = head + `<div class="card"><div class="card-head"><h3>还没有开启</h3><span class="badge">未开启</span></div>${steps}</div>`;
   }
@@ -887,7 +887,7 @@ const NOTIFY_EVENTS = [
   { key: "cc_input", label: "Claude Code 做完一轮、停下来等你（每次回答后都会有，容易多）" },
 ];
 const AWAY = ["cc_away_minutes", "你在这台电脑前时不发 Claude Code 的提醒：最近", "分钟内动过键盘或鼠标就不发（0 = 总是发）"];
-const HOOK_STATE = { installed: "已安装", outdated: "需要重新安装（MAO 或 Python 换了位置）", missing: "还没有安装",
+const HOOK_STATE = { installed: "已安装", outdated: "需要重新安装（Crossview 或 Python 换了位置）", missing: "还没有安装",
                      no_claude: "这台电脑上没有找到 Claude Code", broken: "Claude Code 的 settings.json 读不懂，先修好它" };
 const SEND_ERROR = { rate_limited: "太多了，稍后再发", busy: "没有发出（文件被占用）" };
 
@@ -896,7 +896,7 @@ async function renderNotify() {
   box.innerHTML = '<p class="small-note">正在检查…</p>';
   let d;
   try { d = await api("/api/admin/notify"); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
-  box.innerHTML = `<p class="small-note">有事等你的时候（讨论要你决定、Cowork 卡住了、Claude Code 等你批准……），MAO 往你的手机发一条短提醒。用的是 ntfy App，免费，不用注册。</p>
+  box.innerHTML = `<p class="small-note">有事等你的时候（讨论要你决定、Cowork 卡住了、Claude Code 等你批准……），Crossview 往你的手机发一条短提醒。用的是 ntfy App，免费，不用注册。</p>
     <div class="card" id="nt-main"></div><div class="card" id="nt-events"></div><div class="card" id="nt-recent"></div>`;
   notifyMain(d); notifyEvents(d); notifyRecent(d);
 }
@@ -1013,13 +1013,13 @@ function notifyHook(d, result) {
   if (!b) return;
   b.onclick = async () => {
     const install = b.dataset.a === "hook_install";
-    if (!install && !confirm("从 Claude Code 的设置里移除 MAO 的钩子？")) return;
+    if (!install && !confirm("从 Claude Code 的设置里移除 Crossview 的钩子？")) return;
     b.disabled = true;
     try {
       const r = await notifyPost({ action: b.dataset.a });
       notifyHook(r, r.hook_result);
       toast(install ? (r.hook_result.changed ? "已安装 Claude Code 钩子" : "钩子已经装好，没有改动")
-                    : (r.hook_result.changed ? "已移除 Claude Code 钩子" : "没有找到 MAO 的钩子，没有改动"));
+                    : (r.hook_result.changed ? "已移除 Claude Code 钩子" : "没有找到 Crossview 的钩子，没有改动"));
     } catch (e) { box.querySelector(".error").textContent = e.message; b.disabled = false; }
   };
 }
@@ -1053,7 +1053,7 @@ async function renderLegacy() {
   try { d = await api("/api/admin/legacy"); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
   const locked = d.source === "env";
   box.innerHTML = `<div class="card"><div class="card-head"><h3>旧的派活功能</h3><span class="badge ${d.enabled ? "on" : ""}">${d.enabled ? "开" : "关"}</span></div>
-    <p class="small-note">MAO 早期自己拆任务、派给 AI、合并代码：项目页、聊天里的「交给项目」、Agent 页的控制面板、命令行的 task / run / plan 等。现在开发交给 Cowork，这些默认关闭；数据都还在，随时可以打开。</p>
+    <p class="small-note">Crossview 早期自己拆任务、派给 AI、合并代码：项目页、聊天里的「交给项目」、Agent 页的控制面板、命令行的 task / run / plan 等。现在开发交给 Cowork，这些默认关闭；数据都还在，随时可以打开。</p>
     <label class="switch"><input type="checkbox" id="legacy-on" ${d.enabled ? "checked" : ""}${locked ? " disabled" : ""}><span>使用旧的派活功能</span></label>
     ${locked ? '<p class="small-note">现在由环境变量 MAO_LEGACY_DISPATCH 决定，这里改不了</p>' : ""}</div>`;
   const input = $("#legacy-on");

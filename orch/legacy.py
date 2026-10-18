@@ -1,12 +1,13 @@
-"""The legacy switch: MAO's old task dispatch (派活) is off unless the owner turns it on.
+"""The legacy switch: Crossview's old task dispatch (派活) is off unless the owner turns it on.
 
-The old dispatch is MAO splitting work into tasks, handing them to coding agents and merging the results: the web
+The old dispatch is Crossview splitting work into tasks, handing them to coding agents and merging the results: the web
 Projects page and 交给项目, the Agent page's control panel, the `task / run / plan ...` commands and the `orch_*` MCP
 task tools. Development now goes to Claude Cowork, so all of that is off by default. Nothing is deleted: its data
 stays, and one switch brings it back.
 
 Where the switch lives: <data>/legacy.json = {"dispatch": bool, "changed_at": epoch, "changed_by": "web"|"cli"},
-<data> being the web data folder (MAO_WEB_DATA, else <MAO folder>/.maoweb). A missing or unreadable file means off.
+<data> being the web data folder (MAO_WEB_DATA, else <Crossview folder>/.maoweb). A missing or unreadable file
+means off.
 MAO_LEGACY_DISPATCH (1/on/true/yes or 0/off/false/no) overrides the file, for tests and emergencies; while it is
 set, nobody can change the switch from the web or the CLI. The file is read on every call (no cache): the CLI can
 flip it while the web app runs.
@@ -36,8 +37,8 @@ MCP_TOOLS = frozenset({"orch_list_projects", "orch_list_tasks", "orch_task", "or
 
 WEB_OFF = "旧的派活功能已关闭。管理员可以在 设置 → 旧功能 里打开。"
 ENV_LOCKED = "现在由环境变量 MAO_LEGACY_DISPATCH 决定，这里改不了"
-MCP_OFF = ("{name} belongs to MAO's old task dispatch, which is off. The owner can turn it on in the MAO web app "
-           "(Settings > Legacy) or with: python -m orch legacy on")
+MCP_OFF = ("{name} belongs to Crossview's old task dispatch, which is off. The owner can turn it on in the Crossview "
+           "web app (Settings > Legacy) or with: python -m orch legacy on")
 
 
 def _env(environ: Mapping[str, str] | None) -> Mapping[str, str]:

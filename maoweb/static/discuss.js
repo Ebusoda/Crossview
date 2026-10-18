@@ -1,7 +1,7 @@
 "use strict";
 // 讨论 (admin only): #discuss is the list, #discuss/new starts one, #discuss/DS-0003 is one discussion.
 // GPT and Claude look at a requirement read-only, pick at each other's conclusions, and stop for the owner after
-// each stage; once the owner approves, Cowork takes the brief from MAO over MCP. Boxes are drawn with put(), so open
+// each stage; once the owner approves, Cowork takes the brief from Crossview over MCP. Boxes are drawn with put(), so open
 // <details>, scroll position and the English overlay survive the polls. Model and owner text carries data-no-tr.
 // Uses app.js helpers: $, api, esc, toast, ago, money, tokens, schedulePoll, setBadge, refreshBadge, state,
 // localStorageGet, localStorageSet.
@@ -67,10 +67,10 @@ const MAODiscuss = (() => {
     cli_too_old: "这台电脑上的 claude 版本不支持 --effort，更新 Claude Code 后可用", cli_missing: "没找到这个命令",
     subscription_no_price: "订阅调用没有按量价格，只显示 token",
     estimate: "≈$ 是 Claude Code 自己估算的 API 价格，订阅不另收费",
-    unsafe_cwd: "这个文件夹离 MAO 自己的数据太近，模型会读到别的讨论，所以没有开始",
+    unsafe_cwd: "这个文件夹离 Crossview 自己的数据太近，模型会读到别的讨论，所以没有开始",
     project_missing: "这个项目的文件夹不见了",
     codex_config_unreadable: "codex 的设置文件读不出来，没法确认已经关掉它的 MCP 工具，所以没有开始",
-    mcp_name_unsupported: "codex 设置里有一个 MAO 关不掉的 MCP 工具，所以没有开始",
+    mcp_name_unsupported: "codex 设置里有一个 Crossview 关不掉的 MCP 工具，所以没有开始",
   };
   const ACT = { back_to_gpt: "继续让 GPT 构思", claude_review: "交给 Claude 评审", one_more_round: "再来一轮",
     edit_requirement: "改需求或加约束", approve: "批准，交给 Cowork", reject_plan: "否掉当前方案…" };
@@ -91,7 +91,7 @@ const MAODiscuss = (() => {
   const SEV = { major: "重要", minor: "次要" };
   const OTHER = { silent: "没有回应", agrees: "同意", disagrees: "不同意" };
   const OPEN_RAW = { gpt: "展开 GPT 的原始意见", claude: "展开 Claude 的原始意见" };
-  const KIND = { fact: "事实（MAO 记录）", assumption: "假设", model_suggestion: "模型建议", owner_decision: "你的决定" };
+  const KIND = { fact: "事实（Crossview 记录）", assumption: "假设", model_suggestion: "模型建议", owner_decision: "你的决定" };
   const SECTION = { requirement_changes: "需求变更与约束", approved_decisions: "已批准决策", rejected_plans: "被否方案（及原因）",
     open_questions: "待解决问题", notes: "事实与假设", review_records: "模型评审记录", cowork_feedback: "Cowork 反馈",
     earlier: "同一项目以前的讨论" };
@@ -122,9 +122,10 @@ const MAODiscuss = (() => {
   const sep = '<span class="sep" aria-hidden="true"> · </span>';
   const parts = (list) => list.filter(Boolean).join(sep);
   const av = (side, cls = "") => `<span class="av av-${side === "gpt" ? "openai" : "anthropic"}${cls ? " " + cls : ""}" aria-hidden="true">${side === "gpt" ? "G" : "C"}</span>`;
-  const avWho = (by) => by === "auto" || by === "MAO" ? '<span class="av av-mao" aria-hidden="true"><span class="mark"></span></span>'
+  const isSelf = (by) => by === "auto" || by === "Crossview";   // records from before 0.6.1 arrive renamed (record_sections)
+  const avWho = (by) => isSelf(by) ? '<span class="av av-mao" aria-hidden="true"><span class="mark"></span></span>'
     : `<span class="av av-user" aria-hidden="true" data-no-tr>${esc(str(by || "?").slice(0, 1).toUpperCase())}</span>`;
-  const whoName = (by) => by === "auto" || by === "MAO" ? "<span>MAO</span>" : NAME[by] ? `<span>${NAME[by]}</span>` : nt(by || "—");
+  const whoName = (by) => isSelf(by) ? "<span>Crossview</span>" : NAME[by] ? `<span>${NAME[by]}</span>` : nt(by || "—");
   const usd = (x) => (x == null ? "$ —" : money(x));
   const stLabel = (s) => `<span class="dsc-st st-${esc(str(s))}">${STATUS_LABEL[s] || esc(str(s))}</span>`;
   const tag = (text, cls = "") => `<span class="dsc-tag${cls ? " " + cls : ""}">${text}</span>`;
@@ -199,7 +200,7 @@ const MAODiscuss = (() => {
     const effort = e.applies ? `<label class="dsc-param"><span class="dsc-pl">推理强度</span><select name="effort">${efforts}</select></label>`
       : offRow("推理强度", e.reason, `<select name="effort" disabled aria-label="推理强度"><option value="">CLI 默认</option></select>`);
     const words = `<label class="dsc-param"><span class="dsc-pl">每轮字数上限</span><input type="number" name="words" inputmode="numeric"
-        min="${lim[0]}" max="${lim[1]}" step="50" value="${esc(str(def.output_limit_words || 600))}"><span class="hint">MAO 在提示里要求，并标出超出的回答</span></label>`;
+        min="${lim[0]}" max="${lim[1]}" step="50" value="${esc(str(def.output_limit_words || 600))}"><span class="hint">Crossview 在提示里要求，并标出超出的回答</span></label>`;
     const t = p.temperature || {}, mo = p.max_output_tokens || {}, c = p.cost_usd || {};
     const temp = t.applies ? "" : offRow("温度", t.reason, '<input name="temperature" disabled aria-label="温度" placeholder="—">');
     const maxOut = mo.applies ? "" : offRow("最大输出 token", mo.reason, '<input name="max_output_tokens" disabled aria-label="最大输出 token" placeholder="—">');
@@ -524,7 +525,7 @@ const MAODiscuss = (() => {
     if ((m = t.match(/^回答「([\s\S]*?)」：([\s\S]*)$/)))
       return `${tag(CHANGE.answer)} <q class="dsc-q-in" data-no-tr>${esc(m[1])}</q> ${nt(m[2])}`;
     if ((m = t.match(/^(进展|受阻|问题|完成)：([\s\S]*)$/)) && e.section === "earlier") return `${tag(esc(m[1]))} ${nt(m[2])}`;
-    if (e.by === "MAO") return `<span>${esc(t)}</span>`;                       // MAO's own words: 已被 X 领取 / 提交 … 存在
+    if (e.by === "Crossview") return `<span>${esc(t)}</span>`;                 // Crossview's own words: 已被 X 领取 / 提交 … 存在
     return nt(t);
   }
   function entryHtml(e) {
@@ -552,9 +553,9 @@ const MAODiscuss = (() => {
     const b = live.brief;
     if (!b) return "";
     const head = b.state === "taken" ? `<strong>已被 ${esc(str(b.taken_by || "cowork"))} 领取（${b.taken_at ? ago(b.taken_at) : "刚刚"}）</strong>`
-      : b.state === "done" ? '<strong>Cowork 报告完成</strong><span class="dsc-muted">MAO 只核对了提交是否存在</span>'
+      : b.state === "done" ? '<strong>Cowork 报告完成</strong><span class="dsc-muted">Crossview 只核对了提交是否存在</span>'
       : '<strong>等 Cowork 领取</strong>';
-    const hint = b.state === "approved" ? `<p class="dsc-hint"><span>在 Cowork 里说：用 MAO 的 mao_get_brief 领取 ${esc(live.did)} 开始开发</span></p>` : "";
+    const hint = b.state === "approved" ? `<p class="dsc-hint"><span>在 Cowork 里说：用 Crossview 的 crossview_get_brief 领取 ${esc(live.did)} 开始开发</span></p>` : "";
     const commit = (r) => (r.commit ? `<p class="dsc-commit"><code data-no-tr>${esc(str(r.commit).slice(0, 12))}</code> <span>${r.commit_exists === true ? "提交存在"
       : r.commit_exists === false ? "项目仓库里没有这个提交" : "没法核对这个提交"}</span></p>` : "");
     const reports = (b.reports || []).map((r) => `<li class="dsc-entry"><div class="dsc-em">${parts([tag(REPORT[r.kind] || esc(str(r.kind))), nt(r.by),

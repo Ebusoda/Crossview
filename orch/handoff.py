@@ -144,7 +144,7 @@ def write_task_files(wt: Path, task: Task, mode: str) -> Path:
         "file. You do not need to open them.\n"
     )
 
-    prompt = f"""# Assignment from the MAO orchestrator
+    prompt = f"""# Assignment from Crossview
 
 You are the **{role}** for task **{task.id}: {task.title}**.
 Your working directory is a dedicated git worktree for this task. Only modify files inside it.

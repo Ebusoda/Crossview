@@ -54,7 +54,7 @@ def _lang(language: str) -> str:
 def proposal_prompt(question: str, context: str, language: str) -> str:
     extra = f"\n## Extra context from the user\n\n{context.strip()}\n" if context.strip() else ""
     return f"""<!-- orch:decide step=proposal -->
-# Design question from the MAO orchestrator
+# Design question from Crossview
 
 You are one of two **independent architects**. Another architect answers the same question
 separately; a judge will compare both answers. You are in **read-only mode**: do NOT create, edit

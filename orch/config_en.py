@@ -5,7 +5,7 @@ values); only the comments differ.
 """
 
 DEFAULT_CONFIG_TOML_EN = """\
-# MAO Orchestrator settings
+# Crossview settings
 # No restart needed: changes apply from the next `orch run`.
 
 [project]

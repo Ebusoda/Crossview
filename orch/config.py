@@ -11,7 +11,7 @@ CONFIG_NAME = "orch.toml"
 
 # Written by `orch init`. Comments are in Chinese for the owner; keys stay English.
 DEFAULT_CONFIG_TOML = """\
-# MAO Orchestrator 配置（v0.1-pre）
+# Crossview 配置（v0.1-pre）
 # 修改后无需重启，下次 `orch run` 生效。
 
 [project]

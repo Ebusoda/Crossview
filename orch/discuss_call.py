@@ -27,7 +27,7 @@ from .adapters import REGISTRY
 from .adapters.base import Adapter, RunContext, iter_json
 from .models import Task
 
-INSTRUCTION = ("The assignment from the MAO orchestrator is in the <stdin> block below. You are in read-only mode: "
+INSTRUCTION = ("The assignment from Crossview is in the <stdin> block below. You are in read-only mode: "
                "do not create, edit or delete any file, do not run commands that change anything and do not call "
                "tools that change anything. Answer with the JSON object it asks for.")
 EXECUTORS = {"gpt": "codex", "claude": "claude_code"}
@@ -131,7 +131,7 @@ def call_folder(state: dict, store) -> tuple[Path, bool]:
         if not folder.is_dir():
             raise discuss.StepFailed("", "", "unavailable", "project_missing")
     else:
-        folder, is_temp = Path(tempfile.mkdtemp(prefix="mao-discuss-")).resolve(), True
+        folder, is_temp = Path(tempfile.mkdtemp(prefix="crossview-discuss-")).resolve(), True
     reason = guard_folder(folder, store, is_temp)
     if reason:
         if is_temp:

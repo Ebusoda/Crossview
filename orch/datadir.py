@@ -1,7 +1,7 @@
-"""MAO's shared data folder (the web app's `.maoweb`) and small, safe helpers for the JSON files kept there.
+"""Crossview's shared data folder (the web app's `.maoweb`) and small, safe helpers for the JSON files kept there.
 
 The CLI, the MCP server, the web app and the Claude Code hook all read the same folder: MAO_WEB_DATA, else
-<MAO folder>/.maoweb (gitignored, never published). Reads never create anything; writes are atomic (a temp file in
+<Crossview folder>/.maoweb (gitignored, never published). Reads never create anything; writes are atomic (a temp file in
 the same folder, then os.replace), so a reader in another process sees the old file or the new one, never half.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ OFF = ("0", "off", "false", "no")
 
 
 def data_dir(environ: Mapping[str, str] | None = None) -> Path:
-    """MAO_WEB_DATA, else <MAO folder>/.maoweb (the same folder as maoweb.db.data_dir()). Creates nothing."""
+    """MAO_WEB_DATA, else <Crossview folder>/.maoweb (the same folder as maoweb.db.data_dir()). Creates nothing."""
     env = (os.environ if environ is None else environ).get("MAO_WEB_DATA")
     return Path(env) if env else REPO / ".maoweb"
 

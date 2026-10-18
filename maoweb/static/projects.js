@@ -68,8 +68,8 @@ const MAOProjects = (() => {
     if (j.cancelling || (n && n.kind === "cancel")) return `<span>正在停下来：</span>${task}`;   // 不做了 is on its way
     if (j.status === "pausing") return `<span>正在暂停：</span>${task}`;
     if (j.stage === "plan") return agent ? `${who(agent)}<span> 在看项目、出方案</span>` : "<span>正在准备商量方案</span>";
-    if (n && n.kind === "verify") return `<span>MAO 正在验收：</span>${task}`;
-    if (n && n.kind === "merge") return `<span>MAO 正在合并：</span>${task}`;
+    if (n && n.kind === "verify") return `<span>Crossview 正在验收：</span>${task}`;
+    if (n && n.kind === "merge") return `<span>Crossview 正在合并：</span>${task}`;
     if (n && n.kind === "wait") return `<span>等下一个 AI 空出来：</span>${task}`;
     if (j.status === "queued") return `<span>马上开始：</span>${task}`;
     if (j.stage === "check") return agent ? `${who(agent)}<span> 正在检查：</span>${task}` : `<span>正在检查这一项：</span>${task}`;
@@ -151,7 +151,7 @@ const MAOProjects = (() => {
       doing ? `<span class="pchip doing">${doing} 件正在做</span>` : "", other ? `<span class="pchip">${other} 个有人在用</span>` : "",
       idle ? `<span class="pchip">${idle} 个空闲</span>` : ""].join("");
     const add = d.can_add ? `<button type="button" class="add-card" data-a="add"><span class="ac-ic">${ICON.folder}</span>
-      <span class="ac-text"><strong>添加项目</strong><span>选这台电脑上的一个文件夹就行。还没准备好的文件夹，MAO 会自己准备好，不用再开命令行。</span></span></button>` : "";
+      <span class="ac-text"><strong>添加项目</strong><span>选这台电脑上的一个文件夹就行。还没准备好的文件夹，Crossview 会自己准备好，不用再开命令行。</span></span></button>` : "";
     const empty = cards.length ? "" : d.can_add ? '<p class="empty">还没有项目。添加一个文件夹，就可以把程序交给 AI 团队做。</p>'
       : '<p class="empty">管理员还没有添加项目。添加以后，这里就能把程序交给 AI 团队做。</p>';
     put(root, `<div class="page-head proj-head"><h1>项目</h1><span class="spacer"></span>
@@ -211,7 +211,7 @@ const MAOProjects = (() => {
         <label class="cc-label" for="pp-goal">这次要做什么？</label>
         <textarea id="pp-goal" name="goal" rows="3" maxlength="8000" required placeholder="例如：给计算器加上减法，并补上测试。要能算负数和小数。"></textarea>
         <div class="cc-div"></div>
-        <div class="who-does"><span class="cc-h">谁来做：MAO 安排</span><div class="roles" data-slot="roles"></div>
+        <div class="who-does"><span class="cc-h">谁来做：Crossview 安排</span><div class="roles" data-slot="roles"></div>
           <span class="small-note" data-slot="rnote"></span></div>
         <div class="cc-div"></div>
         <fieldset class="stop-modes">${stopModes("stop_mode", savedStop())}</fieldset>
@@ -434,14 +434,14 @@ const MAOProjects = (() => {
 
   // ---- add a project (admin) ---------------------------------------------------------------------
   const STEP_TEXT = { create_folder: "新建这个文件夹", git_init: "让它能保存版本（git）", first_commit: "把现在的文件存成第一个版本",
-    commit_changes: "把你还没保存的改动存成一个版本", orch_init: "写好 MAO 的设置（.agents 文件夹）", register: "加到项目列表里" };
+    commit_changes: "把你还没保存的改动存成一个版本", orch_init: "写好 Crossview 的设置（.agents 文件夹）", register: "加到项目列表里" };
   const PROBLEM_TEXT = {
     not_absolute: "请填写完整的文件夹路径（从盘符或 / 开始）。",
     drive_root: "不能把整个磁盘当成项目，请选里面的一个文件夹。",
     home_folder: "这是你的个人文件夹（或者包含它），里面有私人文件，不能整个交给 AI。请选一个专门放项目的文件夹。",
     personal_folder: "这是放私人文件的地方（桌面、文档、下载等），不能整个交给 AI。请在里面新建一个专门的项目文件夹。",
-    mao_folder: "这是 MAO 自己的文件夹，不能当成项目。项目可以放在 MAO 的 playground 文件夹里。",
-    worktree: "这是 MAO 给 AI 干活用的临时文件夹，不能当成项目。",
+    mao_folder: "这是 Crossview 自己的文件夹，不能当成项目。项目可以放在 Crossview 的 playground 文件夹里。",
+    worktree: "这是 Crossview 给 AI 干活用的临时文件夹，不能当成项目。",
     inside_repo: "这个文件夹在另一个项目（git 仓库）里面。请直接添加外面那个文件夹：",
     no_git: "这台电脑还没有安装 git。先安装 git，再来添加项目。",
     git_error: "git 打不开这个文件夹。",
@@ -479,7 +479,7 @@ const MAOProjects = (() => {
   const add = { dlg: $("#addproj-dialog"), body: $("#addproj-body"), check: null, browse: null, busy: false };
   function openAdd() {
     add.check = null; add.browse = null;
-    add.body.innerHTML = `<p class="small-note">选这台电脑上的一个文件夹。还没准备好的文件夹，MAO 会自己准备好（保存版本、写好设置），不用再开命令行。</p>
+    add.body.innerHTML = `<p class="small-note">选这台电脑上的一个文件夹。还没准备好的文件夹，Crossview 会自己准备好（保存版本、写好设置），不用再开命令行。</p>
       <form class="add-form" autocomplete="off">
         <label for="add-path">文件夹</label>
         <div class="path-row"><input id="add-path" name="path" spellcheck="false" placeholder="文件夹的完整路径，例如 D:\\code\\my-site">
@@ -542,7 +542,7 @@ const MAOProjects = (() => {
     if (problems.length) html += `<p class="cr-h bad">这个文件夹不能添加：</p><ul class="cr-list">${problems.map((x) => lineHtml(x.code, x, PROBLEM_TEXT, c, "bad")).join("")}</ul>`;
     if (problems.length && !(c.can_create && problems.every((x) => x.code === "missing"))) { res.innerHTML = html; return; }
     if (!c.exists) html += '<p class="cr-h">这个文件夹还不存在。</p>';
-    html += `<p class="cr-h ok">${ICON.ok}<span>${c.steps && c.steps.length > 1 ? "可以添加。MAO 会这样准备它：" : "可以添加，它已经准备好了。"}</span></p><ol class="cr-steps"></ol>`;
+    html += `<p class="cr-h ok">${ICON.ok}<span>${c.steps && c.steps.length > 1 ? "可以添加。Crossview 会这样准备它：" : "可以添加，它已经准备好了。"}</span></p><ol class="cr-steps"></ol>`;
     if (warnings.length) html += `<ul class="cr-list">${warnings.map((x) => lineHtml(x.code, x, WARN_TEXT, c, "warn")).join("")}</ul>`;
     if (g.dirty_count) html += `<details class="raw" data-k="dirty"><summary>没保存的改动（${g.dirty_count} 处）</summary><pre data-no-tr>${esc((g.dirty || []).join("\n"))}</pre></details>`;
     html += `<label>项目名字<input name="name" maxlength="40" value="${esc(c.name || "")}"></label>`;

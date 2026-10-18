@@ -35,7 +35,7 @@ if sys.platform == "win32":
 
     def _protect(data: bytes) -> bytes:
         out = _Blob()
-        if not _crypt32.CryptProtectData(ctypes.byref(_blob(data)), "MAO web key", None, None, None, 0,
+        if not _crypt32.CryptProtectData(ctypes.byref(_blob(data)), "Crossview web key", None, None, None, 0,
                                          ctypes.byref(out)):
             raise OSError("CryptProtectData failed")
         try:

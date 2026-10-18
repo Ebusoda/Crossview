@@ -7,7 +7,7 @@ from __future__ import annotations
 
 _ZH: dict[str, tuple[str, str]] = {
     # key (中文): (English, 日本語)
-    "MAO orch 需要 Python 3.11 或更新版本（当前 %s）\n": ("MAO orch needs Python 3.11 or newer (this is %s)\n", "MAO orch には Python 3.11 以降が必要です（現在 %s）\n"),
+    "Crossview orch 需要 Python 3.11 或更新版本（当前 %s）\n": ("Crossview orch needs Python 3.11 or newer (this is %s)\n", "Crossview orch には Python 3.11 以降が必要です（現在 %s）\n"),
     "   # {0} orch route apply {1}（原为 {2}）": ("   # {0} orch route apply {1} (was {2})", "   # {0} orch route apply {1}（元は {2}）"),
     "没有建议 {0}（建议是按当前数据重新算的，先看 orch route suggest）": ("No suggestion {0} (suggestions are recomputed from current data; see orch route suggest first)", "提案 {0} はありません（提案は現在のデータから計算し直されます。先に orch route suggest を確認してください）"),
     "# 由 orch route apply 写出（原来使用内置默认路由）": ("# written by orch route apply (this project used the built-in default routes)", "# orch route apply が書き出しました（以前は組み込みのデフォルトルートを使用）"),
@@ -734,9 +734,9 @@ _ZH_NOTIFY: dict[str, tuple[str, str]] = {
         "the Python program the hook runs (e.g. the full path of pythonw.exe, so no window pops up)",
         "フックが使う Python（例：pythonw.exe のフルパス。ウィンドウが開かなくなります）"),
     "已安装": ("installed", "インストール済み"),
-    "需要重新安装（MAO 换了位置或 Python 变了）：python -m orch notify hook install": (
-        "needs to be installed again (MAO moved or Python changed): python -m orch notify hook install",
-        "入れ直しが必要です（MAO の場所か Python が変わりました）：python -m orch notify hook install"),
+    "需要重新安装（Crossview 换了位置或 Python 变了）：python -m orch notify hook install": (
+        "needs to be installed again (Crossview moved or Python changed): python -m orch notify hook install",
+        "入れ直しが必要です（Crossview の場所か Python が変わりました）：python -m orch notify hook install"),
     "没有安装（python -m orch notify hook install）": (
         "not installed (python -m orch notify hook install)",
         "インストールされていません（python -m orch notify hook install）"),
@@ -754,8 +754,8 @@ _ZH_NOTIFY: dict[str, tuple[str, str]] = {
     "已移除 Claude Code 钩子（原文件备份在 {0}）": (
         "Removed the Claude Code hook (the original is backed up as {0})",
         "Claude Code のフックを削除しました（元のファイルは {0} にバックアップ）"),
-    "没有找到 MAO 的 Claude Code 钩子，没有改动。": ("MAO's Claude Code hook was not found; nothing changed.",
-                                        "MAO の Claude Code フックは見つかりません。変更はありません。"),
+    "没有找到 Crossview 的 Claude Code 钩子，没有改动。": ("Crossview's Claude Code hook was not found; nothing changed.",
+                                        "Crossview の Claude Code フックは見つかりません。変更はありません。"),
     "Claude Code 钩子：{0}": ("Claude Code hook: {0}", "Claude Code フック：{0}"),
     "ntfy 访问令牌（直接回车 = 清除）：": ("ntfy access token (just Enter = clear it): ",
                                   "ntfy アクセストークン（Enter だけ = 消去）："),

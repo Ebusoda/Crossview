@@ -89,7 +89,7 @@ def setup_excludes(repo: Path) -> None:
         with exclude.open("a", encoding="utf-8") as f:
             if existing and not existing.endswith("\n"):
                 f.write("\n")
-            f.write("# added by MAO orchestrator\n")
+            f.write("# added by Crossview\n")
             for e in missing:
                 f.write(e + "\n")
 

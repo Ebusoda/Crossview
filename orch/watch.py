@@ -1,6 +1,6 @@
 """The phone-alert watcher: looks at what may be waiting for the owner and hands it to orch/notify.py.
 
-All of it is read-only: MAO never clicks, approves or changes anything it watches. The sources:
+All of it is read-only: Crossview never clicks, approves or changes anything it watches. The sources:
 a. discussions (the web app's rows): waiting for a decision, failed / interrupted, or quiet for too long;
 b. Cowork briefs: blocker / question / done reports (the MCP server pushes those at once; this is the retry), and
    optionally a taken brief with no report for hours (a weak signal);
@@ -105,7 +105,7 @@ def gpt_events(cfg: dict, now: float, folder: Path | None = None, done: frozense
     refresh(), which write) and Codex's logs through gptbridge.core.peek() (read-only)."""
     try:
         from gptbridge import core
-    except ImportError:      # this copy of MAO has no GPT bridge
+    except ImportError:      # this copy of Crossview has no GPT bridge
         return []
     folder = Path(folder) if folder else core.jobs_dir()
     if not folder.is_dir():
@@ -210,7 +210,7 @@ def loop(data: Path, stop: threading.Event, *, rows_fn: Callable[[], list[dict]]
                     logged[err] = t
                     if sys.stderr is not None:
                         try:
-                            print(f"MAO phone alerts: {err}", file=sys.stderr)
+                            print(f"Crossview phone alerts: {err}", file=sys.stderr)
                         except Exception:  # noqa: BLE001
                             pass
             stop.wait(interval)

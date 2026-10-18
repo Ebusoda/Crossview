@@ -1,7 +1,7 @@
 """V2 step 1: GPT and Claude discuss a requirement, the owner decides.
 
 The owner (the admin of the web app) writes a requirement. GPT and Claude each analyse it on their own,
-read-only; then they exchange structured conclusions, the first speaker revises the plan, and MAO lays out a
+read-only; then they exchange structured conclusions, the first speaker revises the plan, and Crossview lays out a
 stage card (orch/discuss_record.py) from which the owner decides what happens next. Once the owner approves,
 Cowork pulls the brief over MCP (orch/mcp.py) and reports back.
 
@@ -66,7 +66,7 @@ NO_SUCH = "没有这场讨论"
 BUSY = "讨论记录正忙，请稍后再试"
 NOT_NOW = "当前状态不能执行这个操作"
 CAPPED = "这场讨论已经到上限了：请批准、修改需求或停止"
-DATA_INSIDE = "MAO 自己的数据文件夹在这个项目里面，模型会读到别的讨论和家人的聊天，不能关联这个项目"
+DATA_INSIDE = "Crossview 自己的数据文件夹在这个项目里面，模型会读到别的讨论和家人的聊天，不能关联这个项目"
 NO_TURN_FILE = "没有这一步的原始记录"
 
 
@@ -95,7 +95,7 @@ def default_root() -> Path:
 
 
 def data_folders(store: "Store") -> list[Path]:
-    """MAO's own folders a model must never see: the store root, the default root and the web data folder."""
+    """Crossview's own folders a model must never see: the store root, the default root and the web data folder."""
     out: list[Path] = []
     for p in (store.root, default_root(), Path(os.environ.get("MAO_WEB_DATA") or REPO / ".maoweb")):
         r = Path(p).resolve()
@@ -428,8 +428,8 @@ def _render_prompt(state: dict, step: dict, lists_n: int, plan_steps: int, rejec
     side, kind = step["side"], step["step"]
     g = step["group"]
     project = state.get("project")
-    out = [f"<!-- mao:discuss step={kind} side={side} round={step['round']} id={step['id']} -->",
-           f"# MAO discussion: {ROLE.get(kind, kind)}",
+    out = [f"<!-- crossview:discuss step={kind} side={side} round={step['round']} id={step['id']} -->",
+           f"# Crossview discussion: {ROLE.get(kind, kind)}",
            "You are one of two independent reviewers of a software plan. "
            + (FOLDER_PROJECT if project else FOLDER_NONE)
            + " This is planning only: do not claim that anything is implemented or tested, and do not call any "
@@ -544,8 +544,8 @@ def repair_prompt(state: dict, step: dict, raw: str) -> str:
     raw = raw or ""
     quoted = raw if len(raw) <= REPAIR_KEEP else "[the start of your answer is cut here]\n" + raw[-REPAIR_KEEP:]
     return "\n".join([
-        f"<!-- mao:discuss step=repair side={step['side']} round={step['round']} id={step['id']} -->",
-        "# MAO discussion: repair your answer",
+        f"<!-- crossview:discuss step=repair side={step['side']} round={step['round']} id={step['id']} -->",
+        "# Crossview discussion: repair your answer",
         "You are in READ-ONLY mode: do not read any files and do not call any tool.",
         "Your previous answer could not be read as the required JSON object. Rewrite it as exactly that object. "
         "Do not add or drop content; keep every point and reason.",

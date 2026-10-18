@@ -62,7 +62,7 @@ class Subscription:
             if not refresh and time.monotonic() - self._checked < 60 and self._status:
                 return self.public_status()
             exe = self.executable()
-            result = {"ready": False, "message": "未找到 Claude Code，请在本机安装后重新打开 MAO。"}
+            result = {"ready": False, "message": "未找到 Claude Code，请在本机安装后重新打开 Crossview。"}
             if exe:
                 try:
                     proc = subprocess.run([exe, "auth", "status"], env=self.environment(),

@@ -1,11 +1,11 @@
-# MAO
+# Crossview
 
-MAO runs on your own Windows PC next to Claude Cowork. GPT (through the Codex CLI) and Claude (through Claude Code)
-discuss a requirement over several rounds, read-only and on your own subscriptions. You decide at each stage, and
-Cowork builds the approved plan: it takes the plan from MAO through MCP tools and reports back. MAO also gives
-Cowork what it lacks on this PC (office files, bank statements), runs a small web app for the family, and pushes to
-your phone when something waits for you. MAO no longer orchestrates coding agents itself: its old task dispatch is an
-optional legacy feature, off by default.
+Crossview runs on your own Windows PC next to Claude Cowork. GPT (through the Codex CLI) and Claude (through Claude
+Code) discuss a requirement over several rounds, read-only and on your own subscriptions. You decide at each stage,
+and Cowork builds the approved plan: it takes the plan from Crossview through MCP tools and reports back. Crossview
+also gives Cowork what it lacks on this PC (office files, bank statements), runs a small web app for the family, and
+pushes to your phone when something waits for you. Crossview does not orchestrate coding agents itself: its old task
+dispatch is an optional legacy feature, off by default.
 
 Python 3.11+, standard library only. Built and used on Windows. A guide in Chinese is in
 [docs/README.zh-CN.md](docs/README.zh-CN.md).
@@ -17,11 +17,11 @@ Python 3.11+, standard library only. Built and used on Windows. A guide in Chine
   (consensus, open disagreements, risks, questions for you) and choose what happens next: answer their questions,
   ask for another round or a review, change the requirement, reject or approve the plan. Everything is kept in a
   decision record.
-- **Briefs for Cowork.** An approved plan becomes a brief. Cowork finds and takes it with `mao_list_briefs` and
-  `mao_get_brief`, builds it itself, and reports progress, blockers, questions or completion with
-  `mao_report_progress`. MAO never starts development on its own.
+- **Briefs for Cowork.** An approved plan becomes a brief. Cowork finds and takes it with `crossview_list_briefs` and
+  `crossview_get_brief`, builds it itself, and reports progress, blockers, questions or completion with
+  `crossview_report_progress`. Crossview never starts development on its own.
 - **Phone alerts** through the ntfy app: a discussion waits for your decision, Cowork is blocked or has a question,
-  Claude Code waits for your approval. MAO only looks and sends a short line; it never approves anything.
+  Claude Code waits for your approval. Crossview only looks and sends a short line; it never approves anything.
 - **Family web app:** chat with the model you pick, pictures and video, documents, an account for each family
   member, Chinese or English, on a phone too, and from outside through Tailscale.
 - **Office work on the command line** (and for Cowork): ask questions about an Excel or CSV table, draft, polish or
@@ -33,15 +33,15 @@ Python 3.11+, standard library only. Built and used on Windows. A guide in Chine
 
 ## Getting started
 
-You need Python 3.11 or newer and git; the two CLIs below need Node.js. MAO itself installs nothing else. Commands
-are for PowerShell, run from the folder you cloned into (or `pip install -e .` once, then type `orch` and `maoweb`
-instead of `python -m orch` and `python -m maoweb`).
+You need Python 3.11 or newer and git; the two CLIs below need Node.js. Crossview itself installs nothing else.
+Commands are for PowerShell, run from the folder you cloned into (or `pip install -e .` once, then type `orch` and
+`crossview-web` instead of `python -m orch` and `python -m maoweb`).
 
 1. **Download.**
 
    ```powershell
-   git clone https://github.com/Ebusoda/Multi-Agent-Orchestrator.git
-   cd Multi-Agent-Orchestrator
+   git clone https://github.com/Ebusoda/Crossview.git
+   cd Crossview
    ```
 
 2. **Start the web app.** Double-click `run_web.cmd` (or run `python -m maoweb`). It opens http://127.0.0.1:8848/,
@@ -49,17 +49,17 @@ instead of `python -m orch` and `python -m maoweb`).
 3. **Install and sign in to the two CLIs that discuss.** Claude Code (`npm install -g @anthropic-ai/claude-code`,
    then run `claude` once) uses your Claude plan; Codex (`npm install -g @openai/codex`, then run `codex` once) uses
    your ChatGPT plan. `python -m orch doctor` shows whether both are found. Then open **Discuss** in the web app.
-4. **Add MAO to Claude Desktop / Cowork.** Put this in `claude_desktop_config.json`, with `F:\MAO` changed to the
-   folder you cloned into, and restart Claude Desktop:
+4. **Add Crossview to Claude Desktop / Cowork.** Put this in `claude_desktop_config.json`, with `D:\Crossview`
+   changed to the folder you cloned into, and restart Claude Desktop:
 
    ```json
    {"mcpServers": {"orch": {"command": "cmd",
-                            "args": ["/c", "cd /d F:\\MAO && python -m orch mcp --project F:\\MAO"]}}}
+                            "args": ["/c", "cd /d D:\\Crossview && python -m orch mcp --project D:\\Crossview"]}}}
    ```
 
-   `cmd /c cd /d` makes the MAO folder the working directory, so `python -m orch` is found: a `"cwd"` key is not
-   honoured by every client, and without it Python says "No module named orch". In Cowork, say for example: "use
-   MAO's mao_get_brief to take DS-0001 and build it".
+   `cmd /c cd /d` makes the Crossview folder the working directory, so `python -m orch` is found: a `"cwd"` key is
+   not honoured by every client, and without it Python says "No module named orch". In Cowork, say for example:
+   "use Crossview's crossview_get_brief to take DS-0001 and build it".
 5. **Phone alerts** (optional). In the web app, Settings > Phone alerts: install ntfy on your phone, subscribe to
    the topic shown there, press "Send a test alert", then turn on "Turn on phone alerts" (or run
    `python -m orch notify setup`, which also turns them on). For Claude Code's approval prompts, also run
@@ -85,7 +85,7 @@ and never shown again.
 - **Settings** (admin): chat models and keys, picture and video models, family members, access from outside,
   **Phone alerts**, and **Legacy** (the switch for the old task dispatch).
 - Chinese or English; works on a phone. `run_web.cmd` also listens on this PC's Tailscale address (`--remote`), so
-  your own phone can open MAO when you are out; only this PC and your Tailscale devices are let in (`--lan` also
+  your own phone can open Crossview when you are out; only this PC and your Tailscale devices are let in (`--lan` also
   allows the home network).
 
 ## MCP tools
@@ -95,9 +95,9 @@ for Claude Desktop, Cowork or any MCP client (set up in step 4 above). It offers
 
 | Tool | What it does |
 | --- | --- |
-| `mao_list_briefs` | plans you approved in a discussion, newest first: approved, taken or done |
-| `mao_get_brief` | the brief to build: the original requirement, your changes and constraints, the approved plan with its acceptance criteria, decisions, rejected plans, risks and open questions. Taking it marks it taken, so nobody starts the same work twice |
-| `mao_report_progress` | progress, blocker, question or done (done needs evidence: test commands, their results and the commit). MAO records it as Cowork's claim and only checks that a given commit exists |
+| `crossview_list_briefs` | plans you approved in a discussion, newest first: approved, taken or done |
+| `crossview_get_brief` | the brief to build: the original requirement, your changes and constraints, the approved plan with its acceptance criteria, decisions, rejected plans, risks and open questions. Taking it marks it taken, so nobody starts the same work twice |
+| `crossview_report_progress` | progress, blocker, question or done (done needs evidence: test commands, their results and the commit). Crossview records it as Cowork's claim and only checks that a given commit exists |
 | `office_sheet_ask` | answer a question about an Excel, WPS or CSV table on this PC |
 | `office_doc` | draft, polish or fill in a Word document on this PC |
 | `office_trace` | follow money through bank statements on this PC, without any model |
@@ -114,12 +114,12 @@ With the legacy dispatch on, the 14 `orch_*` task tools are listed too.
 
 ## Phone alerts
 
-MAO pushes one short line to the ntfy app (iOS and Android, no account needed) when something waits for you. It
+Crossview pushes one short line to the ntfy app (iOS and Android, no account needed) when something waits for you. It
 only looks: it never clicks, answers or approves anything.
 
 - **Discussions:** a stage summary is ready for your decision; a discussion stopped (an error or an interruption);
   or nothing has happened for 25 minutes (adjustable from 21 to 240), so it may be stuck.
-- **Cowork:** a blocker, a question or a done report through `mao_report_progress`, pushed at once.
+- **Cowork:** a blocker, a question or a done report through `crossview_report_progress`, pushed at once.
 - **Cowork may have stopped** (off by default): a taken brief with no report for 6 hours (1 to 72). This is a weak
   signal and the alert says so: Cowork may have stopped, or may still be working.
 - **Claude Code approvals:** Claude Code waits for a permission or for your answer to a question.
@@ -135,19 +135,20 @@ for up to 2 hours (a Claude Code alert for 10 minutes).
 **Privacy.** An alert says only what happened plus a short id (such as DS-0003, or the start of a session id):
 never requirement text, model answers, report text, file contents, folder or project names, keys or personal data.
 ntfy.sh is a third-party server, and anyone who knows the topic can read its alerts, so the topic is the only
-secret: MAO generates a random one, which you can replace with a new one at any time (then subscribe again). You can
-use your own ntfy server instead: set its address, plus an access token if it needs one (`notify setup --token`
-reads it without showing it; it is kept with the API keys, encrypted on Windows, never in the config file and never
-sent to the browser). A server address may not contain a user name or password.
+secret: Crossview generates a random one, which you can replace with a new one at any time (then subscribe again).
+You can use your own ntfy server instead: set its address, plus an access token if it needs one
+(`notify setup --token` reads it without showing it; it is kept with the API keys, encrypted on Windows, never in the
+config file and never sent to the browser). A server address may not contain a user name or password.
 
 **The Claude Code hook.** `python -m orch notify hook install` (or Install under Settings > Phone alerts) adds one
 `Notification` hook to Claude Code's `settings.json` (in `CLAUDE_CONFIG_DIR`, else `~/.claude`). It first copies the
 file to `settings.json.bak-<date>-<time>` and keeps every other hook. Installing again changes nothing;
-`python -m orch notify hook uninstall` removes only MAO's entry, and `hook status` shows the state. The hook writes
-nothing back to Claude Code. It is not verified for Cowork or Claude Desktop sessions. To check it, turn alerts on,
-set "No Claude Code alerts while you are at this PC" to 0 (or leave the keyboard and mouse alone for 3 minutes),
-then make Claude Code ask for a permission. The hook starts Python with exec-form `args`, so it needs a Claude Code
-version that supports them: if nothing arrives and `notify status` lists nothing `via hook`, run `claude update`.
+`python -m orch notify hook uninstall` removes only Crossview's entry, and `hook status` shows the state. The hook
+writes nothing back to Claude Code. It is not verified for Cowork or Claude Desktop sessions. To check it, turn
+alerts on, set "No Claude Code alerts while you are at this PC" to 0 (or leave the keyboard and mouse alone for 3
+minutes), then make Claude Code ask for a permission. The hook starts Python with exec-form `args`, so it needs a
+Claude Code version that supports them: if nothing arrives and `notify status` lists nothing `via hook`, run
+`claude update`.
 If a console window flashes when the hook runs, install it with `--python <the folder of python.exe>\pythonw.exe`;
 installing again (also from the web page) keeps that Python, and `hook status` shows it as installed.
 
@@ -184,7 +185,7 @@ before sending work documents to an outside model, and never use it for classifi
 
 ## Old task dispatch (legacy, off by default)
 
-Before 0.6.0, MAO orchestrated coding agents itself: a routing ladder that started each task on the cheapest
+Before 0.6.0, Crossview orchestrated coding agents itself: a routing ladder that started each task on the cheapest
 suitable model (Claude Code, Codex, Gemini CLI, opencode with DeepSeek and others, or a direct API) and moved it to
 a stronger one on objective failures; one git worktree per task, with checkpoints and handoff notes; acceptance
 commands that decide success; `plan` and `decide` for planning and design debates; the web app's Projects page; and
@@ -206,9 +207,9 @@ Its commands: `init`, `task add / list / show / retry / cancel / accept`, `run [
 
 - The discussing models run read-only: Codex with `--sandbox read-only`, Claude Code with only its Read, Glob and
   Grep tools. They can read a linked project folder and change nothing.
-- MAO never approves, clicks or answers anything for you: phone alerts only report, the Claude Code hook only
+- Crossview never approves, clicks or answers anything for you: phone alerts only report, the Claude Code hook only
   pushes, and Cowork builds only plans you approved.
-- MAO never reads or copies the CLIs' sign-in files; the sessions list reads only times, folders and token counts.
+- Crossview never reads or copies the CLIs' sign-in files; the sessions list reads only times, folders and token counts.
   API keys and the ntfy token are stored encrypted on Windows.
 - The web app lets in only this PC and your own Tailscale devices (plus the home network with `--lan`).
 - Only while the legacy dispatch is on: agents run arbitrary commands inside their own worktree, so use it on your
@@ -217,10 +218,14 @@ Its commands: `init`, `task add / list / show / retry / cancel / accept`, `run [
 
 ## Changelog
 
-- **0.6.0**: MAO is now built around discussion and decisions: GPT and Claude discuss a requirement round by round
-  in the web app, you decide, and Claude Cowork takes the approved brief over MCP (`mao_list_briefs`,
-  `mao_get_brief`, `mao_report_progress`). Phone alerts through ntfy when a discussion waits for you, Cowork is
-  blocked or asks, or Claude Code waits for your approval. The old task dispatch (Projects page,
+- **0.6.1**: the project is now called Crossview (renamed from MAO; the old `mao_*` tool names still work).
+  The MCP tools are `crossview_list_briefs`, `crossview_get_brief` and `crossview_report_progress`; `crossview-web`
+  starts the web app like `maoweb`. The `orch` command, the `.maoweb` data folder and the `MAO_*` environment
+  variables keep their names, so nothing needs to be set up again.
+- **0.6.0**: Crossview is now built around discussion and decisions: GPT and Claude discuss a requirement round by
+  round in the web app, you decide, and Claude Cowork takes the approved brief over MCP (`crossview_list_briefs`,
+  `crossview_get_brief`, `crossview_report_progress`). Phone alerts through ntfy when a discussion waits for you,
+  Cowork is blocked or asks, or Claude Code waits for your approval. The old task dispatch (Projects page,
   `orch task/run/plan/decide`, the `orch_*` task tools) is off by default and can be switched back on; its data
   is kept. In the web app, 0.5.0's "assign to agents" card and Coding page are replaced by a Projects page (with
   "Hand to a project" in the chat and "Put it in my project folder"), which belongs to the old dispatch.

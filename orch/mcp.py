@@ -1,20 +1,22 @@
-"""MCP server: MAO's tools for Claude Cowork and Claude Desktop (any MCP client).
+"""MCP server: Crossview's tools for Claude Cowork and Claude Desktop (any MCP client).
 
     {"mcpServers": {"orch": {"command": "cmd",
-                             "args": ["/c", "cd /d F:\\MAO && python -m orch mcp --project F:\\MAO"]}}}
+                             "args": ["/c", "cd /d D:\\Crossview && python -m orch mcp --project D:\\Crossview"]}}}
 
-`cmd /c cd /d` makes the MAO folder the working directory, so `python -m orch` is found whatever folder the
+`cmd /c cd /d` makes the Crossview folder the working directory, so `python -m orch` is found whatever folder the
 client starts in. Speaks the Model Context Protocol over stdio (JSON-RPC 2.0, one message per line).
 
 The tools Cowork uses:
-- briefs from MAO's GPT-Claude discussions (mao_list_briefs, mao_get_brief, mao_report_progress): the owner
-  approved a plan in the web app; Cowork takes it, develops it itself and reports back (a blocker, question or done
-  report also sends the owner a phone alert when alerts are on: orch/notify.py; never the report's text);
+- briefs from Crossview's GPT-Claude discussions (crossview_list_briefs, crossview_get_brief,
+  crossview_report_progress): the owner approved a plan in the web app; Cowork takes it, develops it itself and
+  reports back (a blocker, question or done report also sends the owner a phone alert when alerts are on:
+  orch/notify.py; never the report's text). Their names before 0.6.1 (mao_list_briefs, mao_get_brief,
+  mao_report_progress) still answer, unlisted, for clients that saved them (LEGACY_NAMES);
 - office work on files of this PC (office_sheet_ask, office_doc, office_trace, office_find);
 - the Claude Code / Codex sessions list (orch_sessions);
-- the GPT bridge (gpt_desktop_prepare, gpt_desktop_result), when this copy of MAO has gptbridge.
+- the GPT bridge (gpt_desktop_prepare, gpt_desktop_result), when this copy of Crossview has gptbridge.
 
-The old task tools (orch_add_task, orch_run, orch_merge ... : MAO's own task dispatch) are listed only while the
+The old task tools (orch_add_task, orch_run, orch_merge ... : Crossview's own task dispatch) are listed only while the
 legacy dispatch is on (orch/legacy.py; off by default). While it is off they are not offered, and a call is
 refused with a hint how to turn it on.
 """
@@ -37,8 +39,11 @@ PROTOCOL = "2025-06-18"
 SUPPORTED = ("2025-06-18", "2025-03-26", "2024-11-05")
 ROOT = Path(__file__).resolve().parents[1]
 GPT_TOOLS = ("gpt_desktop_prepare", "gpt_desktop_result")
-HAVE_GPTBRIDGE = importlib.util.find_spec("gptbridge") is not None   # not every copy of MAO has the GPT bridge
-NO_GPTBRIDGE = "the GPT bridge (gptbridge) is not part of this copy of MAO"
+HAVE_GPTBRIDGE = importlib.util.find_spec("gptbridge") is not None   # not every copy of Crossview has the GPT bridge
+NO_GPTBRIDGE = "the GPT bridge (gptbridge) is not part of this copy of Crossview"
+# the brief tools' names before 0.6.1 (the product was called MAO): still called, never listed
+LEGACY_NAMES = {"mao_list_briefs": "crossview_list_briefs", "mao_get_brief": "crossview_get_brief",
+                "mao_report_progress": "crossview_report_progress"}
 
 
 class OrchTools:
@@ -49,9 +54,9 @@ class OrchTools:
         self.projects = {Path(p).resolve().name: Path(p).resolve() for p in projects}
         self.python = python or sys.executable
         self.running: dict[str, subprocess.Popen] = {}
-        # MAO's data folder (the legacy switch lives there); never guessed from the discussions folder
+        # Crossview's data folder (the legacy switch lives there); never guessed from the discussions folder
         self.data = Path(data) if data else datadir.data_dir()
-        # MAO's GPT-Claude discussions (files under a lock, no state.db); touches no disk until a tool is used
+        # Crossview's GPT-Claude discussions (files under a lock, no state.db); touches no disk until a tool is used
         self.store = discuss.Store(Path(discussions) if discussions
                                    else self.data / "discussions" if data else discuss.default_root())
         # phone alerts for Cowork's blocker / question / done reports (orch/notify.py): sent in a thread that
@@ -302,7 +307,7 @@ class OrchTools:
                             for h in res.hits[:200]]
         return body
 
-    # -- briefs from MAO's GPT-Claude discussions (the owner approved them; Cowork develops them) -------------
+    # -- briefs from Crossview's GPT-Claude discussions (the owner approved them; Cowork develops them) -------------
     def list_briefs(self, project: str = "", state: str | None = None) -> dict:
         from . import discuss_record
 
@@ -340,7 +345,7 @@ class OrchTools:
                 try:
                     notify.notify(kind, key, ref=ref, at=at, data=self.data, sender=self.sender, via="mcp")
                 except Exception as e:  # noqa: BLE001
-                    print(f"MAO phone alerts: {type(e).__name__}: {e}"[:300], file=sys.stderr)
+                    print(f"Crossview phone alerts: {type(e).__name__}: {e}"[:300], file=sys.stderr)
 
             if not self.background:
                 send()
@@ -350,7 +355,7 @@ class OrchTools:
             thread.start()
             self._pushes.append(thread)
         except Exception as e:  # noqa: BLE001
-            print(f"MAO phone alerts: {type(e).__name__}: {e}"[:300], file=sys.stderr)
+            print(f"Crossview phone alerts: {type(e).__name__}: {e}"[:300], file=sys.stderr)
 
     def close(self, timeout: float = notify.SEND_TIMEOUT) -> None:
         """Wait (at most `timeout` seconds in all) for pushes that are still being sent."""
@@ -515,25 +520,25 @@ TOOLS: list[dict[str, Any]] = [
          "wait": {"type": "number", "description": "seconds to wait for the task to finish (default 30, max 50)",
                   "default": 30, "minimum": 0, "maximum": 50}},
          "required": ["task_id"]}},
-    # MAO V2: briefs the owner approved in a GPT-Claude discussion (Cowork pulls them; MAO never pushes)
-    {"name": "mao_list_briefs", "description": "Plans the owner approved in MAO's GPT-Claude discussions, newest "
-     "first, with their state: approved (nobody has taken it yet), taken (someone is working on it: do not start it "
-     "again), done.",
+    # briefs the owner approved in a GPT-Claude discussion (Cowork pulls them; Crossview never pushes)
+    {"name": "crossview_list_briefs", "description": "Plans the owner approved in Crossview's GPT-Claude discussions, "
+     "newest first, with their state: approved (nobody has taken it yet), taken (someone is working on it: do not "
+     "start it again), done.",
      "inputSchema": {"type": "object", "properties": {
          "project": {"type": "string", "description": "optional project name"},
          "state": {"type": "string", "enum": ["approved", "taken", "done"]}}}},
-    {"name": "mao_get_brief", "description": "The approved brief to develop: original requirement (verbatim), owner's "
-     "changes and constraints, approved plan with acceptance criteria, architecture decisions and consensus, open "
-     "disagreements, rejected plans not to re-introduce, risks and open questions. Taking it marks it taken by you so "
-     "nobody else starts the same work; call it once, with the discussion id the owner gives you. Develop it "
+    {"name": "crossview_get_brief", "description": "The approved brief to develop: original requirement (verbatim), "
+     "owner's changes and constraints, approved plan with acceptance criteria, architecture decisions and consensus, "
+     "open disagreements, rejected plans not to re-introduce, risks and open questions. Taking it marks it taken by "
+     "you so nobody else starts the same work; call it once, with the discussion id the owner gives you. Develop it "
      "yourself; do not queue it with orch_add_task or orch_run.",
      "inputSchema": {"type": "object", "properties": {
          "discussion_id": {"type": "string", "description": "e.g. DS-0003"},
          "taker": {"type": "string", "description": "who takes it, e.g. cowork (default)"}},
          "required": ["discussion_id"]}},
-    {"name": "mao_report_progress", "description": "Report back on a brief you took: progress, blocker, question (for "
-     "the owner) or done. done needs evidence (test commands and their results, and the commit); MAO records what "
-     "you say as your claim and checks only that a given commit exists.",
+    {"name": "crossview_report_progress", "description": "Report back on a brief you took: progress, blocker, question "
+     "(for the owner) or done. done needs evidence (test commands and their results, and the commit); Crossview "
+     "records what you say as your claim and checks only that a given commit exists.",
      "inputSchema": {"type": "object", "properties": {
          "discussion_id": {"type": "string"}, "text": {"type": "string"},
          "kind": {"type": "string", "enum": ["progress", "blocker", "question", "done"]},
@@ -576,12 +581,14 @@ class Server:
                                               a.get("out", "")),
             "gpt_desktop_prepare": lambda a: tools.gpt_desktop_prepare(a["task"]),
             "gpt_desktop_result": lambda a: tools.gpt_desktop_result(a["task_id"], a.get("wait", 30)),
-            "mao_list_briefs": lambda a: tools.list_briefs(a.get("project", ""), a.get("state") or None),
-            "mao_get_brief": lambda a: tools.get_brief(a.get("discussion_id", ""), a.get("taker", "cowork")),
-            "mao_report_progress": lambda a: tools.report_progress(a.get("discussion_id", ""), a.get("text", ""),
-                                                                   a.get("kind", "progress"), a.get("evidence", ""),
-                                                                   a.get("commit", "")),
+            "crossview_list_briefs": lambda a: tools.list_briefs(a.get("project", ""), a.get("state") or None),
+            "crossview_get_brief": lambda a: tools.get_brief(a.get("discussion_id", ""), a.get("taker", "cowork")),
+            "crossview_report_progress": lambda a: tools.report_progress(a.get("discussion_id", ""), a.get("text", ""),
+                                                                         a.get("kind", "progress"),
+                                                                         a.get("evidence", ""), a.get("commit", "")),
         }
+        for old, new in LEGACY_NAMES.items():      # hidden aliases: not in tools/list
+            self.calls[old] = self.calls[new]
 
     def handle(self, msg: dict) -> dict | None:
         method, mid = msg.get("method"), msg.get("id")

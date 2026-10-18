@@ -58,7 +58,7 @@ def planner_prompt(goal: str, context: str = "") -> str:
     shell = "cmd.exe (Windows)" if sys.platform == "win32" else "/bin/sh"
     example = json.dumps(PLAN_EXAMPLE, ensure_ascii=False, indent=2)
     extra = f"\n## Extra context from the user\n\n{context.strip()}\n" if context.strip() else ""
-    return f"""# Planning assignment from the MAO orchestrator
+    return f"""# Planning assignment from Crossview
 
 You are the **Manager**. Your job is to split a goal into tasks that other coding agents will
 carry out one at a time. You are in **read-only mode**: do NOT create, edit or delete any file.

@@ -1,13 +1,13 @@
 "use strict";
 // One job (#projects/<id>/<jobId>): where it is (the stage bar), what happens right now, the conversation between
-// the agents and MAO, and the cards where the user decides. projects.js hands over the element and calls
+// the agents and Crossview, and the cards where the user decides. projects.js hands over the element and calls
 // window.MAOJob.open / close; app.js's poll timer calls MAOJob.poll.
 // Uses app.js helpers: api, esc, inline, markdown, toast, money, tokens, schedulePoll, refreshBadge, state.
 
 window.MAOJob = (() => {
   const ACTIVE = ["queued", "planning", "running", "pausing"], FINAL = ["done", "cancelled"];
   const COLORS = ["anthropic", "openai", "deepseek", "google", "alibaba", "other", "mao", "user"];
-  const MAO = { pool: "", name: "MAO", vendor: "mao", initials: "M", color: "mao" };
+  const MAO = { pool: "", name: "Crossview", vendor: "mao", initials: "C", color: "mao" };
   const svg = (d, extra = "") => `<svg viewBox="0 0 20 20" aria-hidden="true"${extra}>${d}</svg>`;
   const ICON = {
     back: svg('<path d="M12.5 4.5L7 10l5.5 5.5"/>'), next: svg('<path d="M7.5 4.5L13 10l-5.5 5.5"/>'),
@@ -48,17 +48,17 @@ window.MAOJob = (() => {
     discard: "这一项不要了", retry: "好的，再试一次", accept: "好的，照样合并", cancel: "这件事不做了", pause: "已暂停",
     resume: "好的，接着做", stop_mode: "改好了，下一步开始时生效" };
   const NOTE = { review_skipped: "这次没有别家的 AI 检查，只跑了验收命令。", blocked: "这一项卡住了，停了下来。",
-    failed: "这一项没做成。", interrupted: "MAO 重启过，这一步停在了一半。", merge_failed: "合并时出了问题，已经撤销。",
+    failed: "这一项没做成。", interrupted: "Crossview 重启过，这一步停在了一半。", merge_failed: "合并时出了问题，已经撤销。",
     escalated: "换了另一个 AI 接着做。", cancelled: "这一项不做了。", plan_failed: "商量方案没有成功。",
-    orch_error: "MAO 内部出了点问题。", action_failed: "你的操作没能执行。", dropped: "MAO 重启过，之前排着的操作没有执行。" };
+    orch_error: "Crossview 内部出了点问题。", action_failed: "你的操作没能执行。", dropped: "Crossview 重启过，之前排着的操作没有执行。" };
   const RUN_END = { task_failed: "它没能做完这一轮。", rate_limited: "它的额度用完了，这一轮停了下来。",
-    auth_error: "它没有登录（或者 key 不对），这一轮没能开始。", timeout: "做得太久了，MAO 让它停了下来。",
+    auth_error: "它没有登录（或者 key 不对），这一轮没能开始。", timeout: "做得太久了，Crossview 让它停了下来。",
     crashed: "它意外退出了。", unavailable: "这台电脑上找不到它。", interrupted: "这一轮被打断了。" };
   const RESULT = { merged: "已合并", discarded: "放弃了", blocked: "卡住了", failed: "没做成", waiting: "等你决定",
     running: "正在做", queued: "排队中" };
   const REASON_TITLE = { review_rejected: "检查一直没通过，停下来了", agent_blocked: "它有个问题要问你",
     no_pool: "现在没有能用的 AI", max_runs: "试了好几次还没做成", too_many_runs: "试了好几次还没做成",
-    budget: "花费到上限了", no_route: "没有安排谁来做这类事", orch_error: "MAO 出了点问题", other: "停下来了，要你看一下" };
+    budget: "花费到上限了", no_route: "没有安排谁来做这类事", orch_error: "Crossview 出了点问题", other: "停下来了，要你看一下" };
   const REASON_TEXT = {
     review_rejected: "检查的 AI 改了几轮还是不同意。可以写一句意见让它再改，也可以照样合并或者不要这一项。",
     agent_blocked: "它停下来等你回答。点「回答它」写下你的回答，它会接着做。",
@@ -66,12 +66,12 @@ window.MAOJob = (() => {
     max_runs: "做了好几轮都没有通过验收。可以写一句意见再改，或者不要这一项。",
     too_many_runs: "做了好几轮都没有通过验收。可以写一句意见再改，或者不要这一项。",
     budget: "这一项花的钱到了设定的上限。", no_route: "项目设置里没有安排谁来做这类事。",
-    orch_error: "MAO 在安排这一项时出了错。可以再试一次。", other: "这一项停了下来。" };
-  const STOP_TITLE = { plan_failed: "商量没成功", paused: "已经暂停", interrupted: "MAO 重启过，这件事停在了一半",
+    orch_error: "Crossview 在安排这一项时出了错。可以再试一次。", other: "这一项停了下来。" };
+  const STOP_TITLE = { plan_failed: "商量没成功", paused: "已经暂停", interrupted: "Crossview 重启过，这件事停在了一半",
     failed: "出了问题，停下来了", stalled: "剩下的几项做不了了", missing: "找不到项目文件夹了" };
   // a stopped card: what happened, then what the buttons on it can do (built from its actions, never more)
   const STOP_TEXT = { plan_failed: "出方案的 AI 没能给出能用的方案。", paused: "它们停在了这里。", interrupted: "",
-    failed: "MAO 在做这件事时出了错。", stalled: "剩下的项要用到前面没做成（或者不要了）的那一项，做不了了。",
+    failed: "Crossview 在做这件事时出了错。", stalled: "剩下的项要用到前面没做成（或者不要了）的那一项，做不了了。",
     missing: "项目文件夹被移走或者删掉了，这件事没法接着做。" };
   const STOP_NEXT = { both: "可以接着做，或者重新商量。", resume: "点「继续做」接着来，或者不做了。", replan: "可以重新商量，或者不做了。",
     none: "没有可以接着做的了。点「不做了」结束这件事。" };
@@ -152,7 +152,7 @@ window.MAOJob = (() => {
     let cur = stopped ? st.step || (pg.state === "done" ? "build" : "plan") : st.key;
     const POS = { plan: 0, plan_gate: 1, build: 2, check: 3, merge_gate: 4, done: 6 };
     let pos = POS[cur] !== undefined ? POS[cur] : 0;
-    if (cur === "merge_gate" && mg.state === "done") pos = 5;   // the user said merge: MAO merges now
+    if (cur === "merge_gate" && mg.state === "done") pos = 5;   // the user said merge: Crossview merges now
     if (cur === "plan" && pg.state === "waiting") pos = 1;
     const live = isLive(d) && !stopped;
     const item = st.item, plan = (d.sections || []).find((s) => s.key === "plan");
@@ -209,11 +209,11 @@ window.MAOJob = (() => {
     const a = n.agent || MAO;
     if (a.vendor === "mao") {
       if (n.kind === "cancel") return "<span>正在停下来…</span>";
-      if (n.kind === "verify") return "<span>MAO 正在验收：运行测试</span>";
-      if (n.kind === "merge") return "<span>MAO 正在合并</span>";
+      if (n.kind === "verify") return "<span>Crossview 正在验收：运行测试</span>";
+      if (n.kind === "merge") return "<span>Crossview 正在合并</span>";
       if (n.role === "plan" || !(d.tasks || []).length) return "<span>正在准备商量方案</span>";
       const t = taskOf(d, n.task_id);   // the item is done and the work stops in a moment: no AI is awaited
-      return t && t.status === "verified" ? "<span>MAO 在收尾</span>" : "<span>等下一个 AI 空出来</span>";
+      return t && t.status === "verified" ? "<span>Crossview 在收尾</span>" : "<span>等下一个 AI 空出来</span>";
     }
     if (NOW_VERB[n.kind] && n.target && n.role !== "plan")
       return `${who(a)}<span> ${NOW_VERB[n.kind]} </span><code class="jv-tgt">${txt(n.target)}</code>`;
@@ -298,7 +298,7 @@ window.MAOJob = (() => {
   // ---- the conversation ---------------------------------------------------------------------------
   function actRow(it, live) {
     const k = it.kind, going = live && it.ok === null && k !== "error" && k !== "limit";
-    const brief = it.task_file && ["read", "edit", "write"].includes(k);   // MAO's own notes under .task/: no path
+    const brief = it.task_file && ["read", "edit", "write"].includes(k);   // Crossview's own notes under .task/: no path
     const verb = !brief ? VERB[k] || "用工具" : k === "read" ? "看任务说明"
       : /PROGRESS\.md$/i.test(it.target || "") ? "记下进度" : /REVIEW\.md$/i.test(it.target || "") ? "写检查意见" : "写任务笔记";
     let meta = "";
@@ -380,7 +380,7 @@ window.MAOJob = (() => {
       return `<div class="jv-ri"><div class="jv-rih">${head}</div>${it.output ? `<pre>${txt(it.output)}</pre>` : ""}</div>`;
     }).join("");
     const block = (label, text) => (text ? `<div class="jv-ri"><div class="jv-rih"><span class="jv-verb">${label}</span></div><pre>${txt(text)}</pre></div>` : "");
-    const all = rows + block("最后的回复", det.summary) + block("出错信息", det.error) + block("MAO 验收的输出", det.verify_log) +
+    const all = rows + block("最后的回复", det.summary) + block("出错信息", det.error) + block("Crossview 验收的输出", det.verify_log) +
       block("检查报告", det.review_md);
     return all || '<p class="jv-muted">没有记录。</p>';
   }
@@ -399,7 +399,7 @@ window.MAOJob = (() => {
       const res = e.live ? '<span class="jv-spin sm"></span><span>进行中…</span>'
         : e.ok ? `<span>${t && t.total ? `${t.passed} 个通过` : "通过"}</span>` : t && t.failed ? `<span>${t.failed} 个没通过</span>` : "<span>没通过</span>";
       return `<div class="jv-verify ${cls}" data-key="v:${txt(e.run_id)}"><span class="mark"></span>
-        <span class="jv-vt"><span>MAO 自己又跑了一遍验收</span>${(e.commands || []).length ? `<code>${txt(e.commands.join(" ; "))}</code>` : ""}</span>
+        <span class="jv-vt"><span>Crossview 自己又跑了一遍验收</span>${(e.commands || []).length ? `<code>${txt(e.commands.join(" ; "))}</code>` : ""}</span>
         <span class="jv-vr">${res}</span></div>`;
     }
     if (e.type === "decision") {
@@ -412,7 +412,7 @@ window.MAOJob = (() => {
         <div class="jv-mf">${mine ? "<span>你</span>" : `<span data-no-tr>${txt(e.by)}</span>`}${e.at ? `${sep}<span>${when(e.at)}</span>` : ""}</div></div></div>`;
     }
     if (e.type === "merged") {
-      return `<div class="jv-verify ok" data-key="m:${e.at}"><span class="mark"></span><span class="jv-vt"><span>MAO 合并好了</span>
+      return `<div class="jv-verify ok" data-key="m:${e.at}"><span class="mark"></span><span class="jv-vt"><span>Crossview 合并好了</span>
         ${e.sha ? `<code>${txt(String(e.sha).slice(0, 7))}</code>` : ""}</span><span class="jv-vr"><span>${e.at ? when(e.at) : ""}</span></span></div>`;
     }
     if (e.type === "note") {
